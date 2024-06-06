@@ -3,6 +3,7 @@ package raft
 import (
 	//	"bytes"
 
+	"fmt"
 	"math/rand"
 	"raft-kv/proto"
 	"sync"
@@ -145,8 +146,6 @@ func (rf *Raft) CommitChecker() {
 }
 
 func (rf *Raft) handleInstallSnapshot(serverTo int) {
-	reply := &proto.InstallSnapshotReply{}
-
 	rf.mu.Lock()
 
 	if rf.role != Leader {
@@ -165,7 +164,7 @@ func (rf *Raft) handleInstallSnapshot(serverTo int) {
 
 	rf.mu.Unlock()
 
-	ok := rf.sendInstallSnapshot(serverTo, args, reply)
+	reply, ok := rf.sendInstallSnapshot(serverTo, args)
 	if !ok {
 		return
 	}
@@ -330,15 +329,12 @@ func (rf *Raft) SendHeartBeats() {
 			sendInstallSnapshot := false
 
 			if args.PrevLogIndex < rf.lastIncludedIndex {
-				// 表示Follower有落后的部分且被截断, 改为发送同步心跳
 				DPrintf("leader %v 取消向 server %v 广播新的心跳, 改为发送sendInstallSnapshot, lastIncludedIndex=%v, nextIndex[%v]=%v, args = %+v \n", rf.me, i, rf.lastIncludedIndex, i, rf.nextIndex[i], args)
 				sendInstallSnapshot = true
 			} else if rf.VirtualLogIdx(int64(len(rf.log)-1)) > args.PrevLogIndex {
-				// 如果有新的log需要发送, 则就是一个真正的AppendEntries而不是心跳
 				args.Entries = rf.log[rf.RealLogIdx(args.PrevLogIndex+1):]
 				DPrintf("leader %v 开始向 server %v 广播新的AppendEntries, lastIncludedIndex=%v, nextIndex[%v]=%v, PrevLogIndex=%v, len(Entries) = %v\n", rf.me, i, rf.lastIncludedIndex, i, rf.nextIndex[i], args.PrevLogIndex, len(args.Entries))
 			} else {
-				// 如果没有新的log发送, 就发送一个长度为0的切片, 表示心跳
 				DPrintf("leader %v 开始向 server %v 广播新的心跳, lastIncludedIndex=%v, nextIndex[%v]=%v, PrevLogIndex=%v, len(Entries) = %v \n", rf.me, i, rf.lastIncludedIndex, i, rf.nextIndex[i], args.PrevLogIndex, len(args.Entries))
 				args.Entries = make([]*proto.Entry, 0)
 			}
@@ -359,8 +355,8 @@ func (rf *Raft) SendHeartBeats() {
 
 func (rf *Raft) GetVoteAnswer(server int, args *proto.RequestVoteArgs) bool {
 	sendArgs := *args
-	reply := proto.RequestVoteReply{}
-	ok := rf.sendRequestVote(server, &sendArgs, &reply)
+	reply, ok := rf.sendRequestVote(server, &sendArgs)
+	fmt.Printf("server %v 收到 server %v 的RequestVoteReply, Term=%v, VoteGranted=%v\n", rf.me, server, reply.Term, reply.VoteGranted)
 	if !ok {
 		return false
 	}
@@ -401,25 +397,20 @@ func (rf *Raft) collectVote(serverTo int, args *proto.RequestVoteArgs, muVote *s
 	*voteCount += 1
 	if *voteCount > len(rf.peers)/2 {
 		rf.mu.Lock()
-		// DPrintf("server %v collectVote 获取锁mu", rf.me)
 		if rf.role != Candidate || rf.currentTerm != args.Term {
-			// 有另外一个投票的协程收到了更新的term而更改了自身状态为Follower
-			// 或者自己的term已经过期了, 也就是被新一轮的选举追上了
 			rf.mu.Unlock()
-			// DPrintf("server %v 释放锁mu", rf.me)
 
 			muVote.Unlock()
 			return
 		}
+		fmt.Printf(">>> server %v 赢得了选举, 成为Leader\n", rf.me)
 		DPrintf("server %v 成为了新的 leader", rf.me)
 		rf.role = Leader
-		// 需要重新初始化nextIndex和matchIndex
 		for i := 0; i < len(rf.nextIndex); i++ {
 			rf.nextIndex[i] = rf.VirtualLogIdx(int64(len(rf.log)))
 			rf.matchIndex[i] = rf.lastIncludedIndex // 由于matchIndex初始化为lastIncludedIndex, 因此在崩溃恢复后, 大概率触发InstallSnapshot RPC
 		}
 		rf.mu.Unlock()
-		// DPrintf("server %v collectVote 释放锁mu", rf.me)
 
 		go rf.SendHeartBeats()
 	}
@@ -510,7 +501,6 @@ func Make(peers []proto.RaftClient, me int32,
 	for i := 0; i < len(rf.nextIndex); i++ {
 		rf.nextIndex[i] = rf.VirtualLogIdx(int64(len(rf.log))) // raft中的index是从1开始的
 	}
-
 	// start ticker goroutine to start elections
 	go rf.ticker()
 	go rf.CommitChecker()

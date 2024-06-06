@@ -11,7 +11,7 @@ func (rf *Raft) readSnapshot(data []byte) {
 
 // Snapshot means the service no longer needs the log through (and including)
 // that index. Raft now trim its log as much as possible.
-func (rf *Raft) Snapshot(index int, snapshot []byte) {
+func (rf *Raft) Snapshot(index int64, snapshot []byte) {
 	// Your code here (2D).
 	rf.mu.Lock()
 	defer rf.mu.Unlock()

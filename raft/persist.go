@@ -3,6 +3,7 @@ package raft
 import (
 	"bytes"
 	"encoding/gob"
+	"raft-kv/proto"
 )
 
 // save Raft's persistent state to stable storage,
@@ -27,11 +28,11 @@ func (rf *Raft) readPersist(data []byte) {
 	r := bytes.NewBuffer(data)
 	d := gob.NewDecoder(r)
 
-	var votedFor int
-	var currentTerm int
-	var log []Entry
-	var lastIncludedIndex int
-	var lastIncludedTerm int
+	var votedFor int32
+	var currentTerm int32
+	var log []*proto.Entry
+	var lastIncludedIndex int64
+	var lastIncludedTerm int32
 	if d.Decode(&votedFor) != nil ||
 		d.Decode(&currentTerm) != nil ||
 		d.Decode(&log) != nil ||

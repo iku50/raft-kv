@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package raftpb;
+
+option go_package = "github.com/raft-kv/raft/proto";
+
+message ApplyArgs {
+    string addr = 1;
+    string name = 2;
+}
+
+message ApplyReply {
+    bool success = 1;
+}
