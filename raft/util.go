@@ -32,10 +32,10 @@ func (rf *Raft) ResetHeartTimer(timeStamp int) {
 	rf.heartTimer.Reset(time.Duration(timeStamp) * time.Millisecond)
 }
 
-func (rf *Raft) RealLogIdx(vIdx int) int {
+func (rf *Raft) RealLogIdx(vIdx int64) int64 {
 	return vIdx - rf.lastIncludedIndex
 }
 
-func (rf *Raft) VirtualLogIdx(rIdx int) int {
+func (rf *Raft) VirtualLogIdx(rIdx int64) int64 {
 	return rIdx + rf.lastIncludedIndex
 }

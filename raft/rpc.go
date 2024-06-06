@@ -1,12 +1,17 @@
 package raft
 
+import (
+	"context"
+	"raft-kv/proto"
+)
+
 type InstallSnapshotArgs struct {
 	Term              int    // leader’s term
 	LeaderId          int    // so follower can redirect clients
 	LastIncludedIndex int    // the snapshot replaces all entries up through and including this index
 	LastIncludedTerm  int    // term of lastIncludedIndex snapshot file
 	Data              []byte // [] raw bytes of the snapshot chunk
-	LastIncludedCmd   interface{}
+	LastIncludedCmd   Command
 }
 
 type InstallSnapshotReply struct {
@@ -31,34 +36,35 @@ type AppendEntriesReply struct {
 	XLen    int  // Follower的log的长度
 }
 
-// RequestVote RPC arguments structure.
-type RequestVoteArgs struct {
-	// Your data here (2A, 2B).
-	Term         int // candidate’s term
-	CandidateId  int // candidate requesting vote
-	LastLogIndex int // index of candidate’s last log entry (§5.4)
-	LastLogTerm  int // term of candidate’s last log entry (§5.4)
-}
+// // RequestVote RPC arguments structure.
+// type proto.RequestVoteArgs struct {
+// 	// Your data here (2A, 2B).
+// 	Term         int // candidate’s term
+// 	CandidateId  int // candidate requesting vote
+// 	LastLogIndex int // index of candidate’s last log entry (§5.4)
+// 	LastLogTerm  int // term of candidate’s last log entry (§5.4)
+// }
 
 // RequestVote RPC reply structure.
-type RequestVoteReply struct {
-	// Your data here (2A).
-	Term        int  // currentTerm, for candidate to update itself
-	VoteGranted bool // true means candidate received vote
+// type RequestVoteReply struct {
+// 	// Your data here (2A).
+// 	Term        int  // currentTerm, for candidate to update itself
+// 	VoteGranted bool // true means candidate received vote
+//
+// }
+
+func (rf *Raft) sendRequestVote(server int, args *proto.RequestVoteArgs, reply *proto.RequestVoteReply) bool {
+	reply, err := rf.peers[server].RequestVote(context.Background(), args)
+	return err == nil
 }
 
-func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
-	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
-	return ok
-}
-
-func (rf *Raft) sendInstallSnapshot(serverTo int, args *InstallSnapshotArgs, reply *InstallSnapshotReply) bool {
-	ok := rf.peers[serverTo].Call("Raft.InstallSnapshot", args, reply)
-	return ok
+func (rf *Raft) sendInstallSnapshot(serverTo int, args *proto.InstallSnapshotArgs, reply *proto.InstallSnapshotReply) bool {
+	reply, err := rf.peers[serverTo].InstallSnapshot(context.Background(), args)
+	return err == nil
 }
 
 // InstallSnapshot handler
-func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapshotReply) {
+func (rf *Raft) InstallSnapshot(args *proto.InstallSnapshotArgs, reply *proto.InstallSnapshotReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
@@ -89,7 +95,7 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 	hasEntry := false
 	rIdx := 0
 	for ; rIdx < len(rf.log); rIdx++ {
-		if rf.VirtualLogIdx(rIdx) == args.LastIncludedIndex && rf.log[rIdx].Term == args.LastIncludedTerm {
+		if rf.VirtualLogIdx(int64(rIdx)) == args.LastIncludedIndex && rf.log[rIdx].Term == args.LastIncludedTerm {
 			hasEntry = true
 			break
 		}
@@ -108,8 +114,8 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 		rf.log = rf.log[rIdx:]
 	} else {
 		DPrintf("server %v InstallSnapshot: 清空log\n", rf.me)
-		rf.log = make([]Entry, 0)
-		rf.log = append(rf.log, Entry{Term: rf.lastIncludedTerm, Cmd: args.LastIncludedCmd}) // 索引为0处占位
+		rf.log = make([]*proto.Entry, 0)
+		rf.log = append(rf.log, &proto.Entry{Term: rf.lastIncludedTerm, Cmd: args.LastIncludedCmd}) // 索引为0处占位
 	}
 
 	rf.snapShot = args.Data
@@ -129,13 +135,13 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 	rf.persist()
 }
 
-func (rf *Raft) sendAppendEntries(serverTo int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
-	ok := rf.peers[serverTo].Call("Raft.AppendEntries", args, reply)
-	return ok
+func (rf *Raft) sendAppendEntries(serverTo int, args *proto.AppendEntriesArgs, reply *proto.AppendEntriesReply) bool {
+	reply, err := rf.peers[serverTo].AppendEntries(context.Background(), args)
+	return err == nil
 }
 
 // AppendEntries handler
-func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+func (rf *Raft) AppendEntries(args *proto.AppendEntriesArgs, reply *proto.AppendEntriesReply) {
 	rf.mu.Lock()
 	// DPrintf("server %v AppendEntries 获取锁mu", rf.me)
 	defer func() {
@@ -171,9 +177,9 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		reply.Success = true
 		reply.Term = rf.currentTerm
 		return
-	} else if args.PrevLogIndex >= rf.VirtualLogIdx(len(rf.log)) {
+	} else if args.PrevLogIndex >= rf.VirtualLogIdx(int64(len(rf.log))) {
 		reply.XTerm = -1
-		reply.XLen = rf.VirtualLogIdx(len(rf.log)) // Log长度, 包括了已经snapShot的部分
+		reply.XLen = rf.VirtualLogIdx(int64(len(rf.log))) // Log长度, 包括了已经snapShot的部分
 		isConflict = true
 		DPrintf("server %v 的log在PrevLogIndex: %v 位置不存在日志项, Log长度为%v\n", rf.me, args.PrevLogIndex, reply.XLen)
 	} else if rf.log[rf.RealLogIdx(args.PrevLogIndex)].Term != args.PrevLogTerm {
@@ -183,7 +189,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			i -= 1
 		}
 		reply.XIndex = i + 1
-		reply.XLen = rf.VirtualLogIdx(len(rf.log)) // Log长度, 包括了已经snapShot的部分
+		reply.XLen = rf.VirtualLogIdx(int64(len(rf.log))) // Log长度, 包括了已经snapShot的部分
 		isConflict = true
 		DPrintf("server %v 的log在PrevLogIndex: %v 位置Term不匹配, args.Term=%v, 实际的term=%v\n", rf.me, args.PrevLogIndex, args.PrevLogTerm, reply.XTerm)
 	}
@@ -195,7 +201,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 
 	for idx, log := range args.Entries {
-		ridx := rf.RealLogIdx(args.PrevLogIndex) + 1 + idx
+		ridx := int(rf.RealLogIdx(args.PrevLogIndex)) + 1 + idx
 		if ridx < len(rf.log) && rf.log[ridx].Term != log.Term {
 			// 某位置发生了冲突, 覆盖这个位置开始的所有内容
 			rf.log = rf.log[:ridx]
@@ -218,8 +224,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	if args.LeaderCommit > rf.commitIndex {
 		// 5.If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of last new entry)
-		if args.LeaderCommit > rf.VirtualLogIdx(len(rf.log)-1) {
-			rf.commitIndex = rf.VirtualLogIdx(len(rf.log) - 1)
+		if args.LeaderCommit > rf.VirtualLogIdx(int64(len(rf.log)-1)) {
+			rf.commitIndex = rf.VirtualLogIdx(int64(len(rf.log) - 1))
 		} else {
 			rf.commitIndex = args.LeaderCommit
 		}
@@ -229,7 +235,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 }
 
 // RequestVote RPC handler.
-func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
+func (rf *Raft) RequestVote(args *proto.RequestVoteArgs, reply *proto.RequestVoteReply) {
 	// Your code here (2A, 2B).
 
 	rf.mu.Lock()
@@ -262,7 +268,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if rf.votedFor == -1 || rf.votedFor == args.CandidateId {
 		// 首先确保是没投过票的
 		if args.LastLogTerm > rf.log[len(rf.log)-1].Term ||
-			(args.LastLogTerm == rf.log[len(rf.log)-1].Term && args.LastLogIndex >= rf.VirtualLogIdx(len(rf.log)-1)) {
+			(args.LastLogTerm == rf.log[len(rf.log)-1].Term && args.LastLogIndex >= rf.VirtualLogIdx(int64(len(rf.log)-1))) {
 			// 2. If votedFor is null or candidateId, and candidate’s log is least as up-to-date as receiver’s log, grant vote (§5.2, §5.4)
 			rf.currentTerm = args.Term
 			reply.Term = rf.currentTerm

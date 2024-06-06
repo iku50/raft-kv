@@ -16,14 +16,16 @@ import (
 	"log"
 	"math/big"
 	"math/rand"
+	"raft-kv/facade"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"6.5840/labgob"
-	"6.5840/labrpc"
+	"encoding/gob"
+
+	"raft-kv/infra"
 )
 
 func randstring(n int) string {
@@ -44,7 +46,7 @@ type config struct {
 	mu          sync.Mutex
 	t           *testing.T
 	finished    int32
-	net         *labrpc.Network
+	net         *infra.Network
 	n           int
 	rafts       []*Raft
 	applyErr    []string // from apply channel readers
@@ -75,7 +77,7 @@ func make_config(t *testing.T, n int, unreliable bool, snapshot bool) *config {
 	runtime.GOMAXPROCS(4)
 	cfg := &config{}
 	cfg.t = t
-	cfg.net = labrpc.MakeNetwork()
+	cfg.net = infra.NewNetwork()
 	cfg.n = n
 	cfg.applyErr = make([]string, cfg.n)
 	cfg.rafts = make([]*Raft, cfg.n)
@@ -189,7 +191,7 @@ func (cfg *config) ingestSnap(i int, snapshot []byte, index int) string {
 		return "nil snapshot"
 	}
 	r := bytes.NewBuffer(snapshot)
-	d := labgob.NewDecoder(r)
+	d := gob.NewDecoder(r)
 	var lastIncludedIndex int
 	var xlog []interface{}
 	if d.Decode(&lastIncludedIndex) != nil ||
@@ -247,7 +249,7 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 
 			if (m.CommandIndex+1)%SnapShotInterval == 0 {
 				w := new(bytes.Buffer)
-				e := labgob.NewEncoder(w)
+				e := gob.NewEncoder(w)
 				e.Encode(m.CommandIndex)
 				var xlog []interface{}
 				for j := 0; j <= m.CommandIndex; j++ {
@@ -284,9 +286,9 @@ func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
 	}
 
 	// a fresh set of ClientEnds.
-	ends := make([]*labrpc.ClientEnd, cfg.n)
+	ends := make([]*facade.ClientEnd, cfg.n)
 	for j := 0; j < cfg.n; j++ {
-		ends[j] = cfg.net.MakeEnd(cfg.endnames[i][j])
+		ends[j] = cfg.net.MakeClientEnd(cfg.endnames[i][j])
 		cfg.net.Connect(cfg.endnames[i][j], j)
 	}
 
@@ -326,8 +328,8 @@ func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
 
 	go applier(i, applyCh)
 
-	svc := labrpc.MakeService(rf)
-	srv := labrpc.MakeServer()
+	svc := infra.MakeService(rf)
+	srv := infra.MakeServer()
 	srv.AddService(svc)
 	cfg.net.AddServer(i, srv)
 }
@@ -555,7 +557,7 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // times, in case a leader fails just after Start().
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 3B tests.
-func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
+func (cfg *config) one(cmd Command, expectedServers int, retry bool) int {
 	t0 := time.Now()
 	starts := 0
 	for time.Since(t0).Seconds() < 10 && cfg.checkFinished() == false {
