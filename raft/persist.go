@@ -38,7 +38,6 @@ func (rf *Raft) readPersist(data []byte) {
 		d.Decode(&log) != nil ||
 		d.Decode(&lastIncludedIndex) != nil ||
 		d.Decode(&lastIncludedTerm) != nil {
-		DPrintf("server %v readPersist failed\n", rf.me)
 	} else {
 		rf.votedFor = votedFor
 		rf.currentTerm = currentTerm
@@ -47,6 +46,5 @@ func (rf *Raft) readPersist(data []byte) {
 		rf.lastIncludedTerm = lastIncludedTerm
 		rf.commitIndex = lastIncludedIndex
 		rf.lastApplied = lastIncludedIndex
-		DPrintf("server %v  readPersist 成功\n", rf.me)
 	}
 }

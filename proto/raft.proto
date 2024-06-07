@@ -6,11 +6,11 @@ option go_package = "github.com/raft-kv/raft/proto";
 // InstallSnapshotArgs is the argument structure for the InstallSnapshot RPC.
 message InstallSnapshotArgs {
     int32 term = 1;                  // leader’s term
-    int32 leader_id = 2;             // so follower can redirect clients
+    int32 leader_id = 2;             // leader's id
     int64 last_included_index = 3;   // the snapshot replaces all entries up through and including this index
     int32 last_included_term = 4;    // term of lastIncludedIndex snapshot file
     bytes data = 5;                  // raw bytes of the snapshot chunk
-    bytes last_included_cmd = 6;
+    bytes last_included_cmd = 6;     // the last command included in this snapshot
 }
 
 // InstallSnapshotReply is the reply structure for the InstallSnapshot RPC.

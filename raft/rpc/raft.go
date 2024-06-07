@@ -6,6 +6,7 @@ import (
 	"net"
 	"raft-kv/proto"
 	"raft-kv/raft"
+	"strconv"
 
 	"google.golang.org/grpc"
 )
@@ -30,15 +31,18 @@ func (rr *RpcRaft) InstallSnapshot(ctx context.Context, p *proto.InstallSnapshot
 	rr.rf.InstallSnapshot(p, &reply)
 	return &reply, nil
 }
-func Start(port string, rf *raft.Raft) {
-	lis, err := net.Listen("tcp", ":"+port)
+func Start(port int, rf *raft.Raft, killCh chan bool, okCh chan bool) {
+	lis, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
 		panic(err)
 	}
 	server := grpc.NewServer()
 	proto.RegisterRaftServer(server, &RpcRaft{rf: rf})
-	log.Printf("Raft server started on port %s", port)
+	log.Printf("Raft server started on port %d", port)
+	okCh <- true
 	if err := server.Serve(lis); err != nil {
-		panic(err)
+		return
 	}
+	<-killCh
+	server.GracefulStop()
 }

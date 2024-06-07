@@ -7,26 +7,6 @@ package raft
 // so, while you can modify this code to help you debug, please
 // test with the original before submitting.
 //
-//
-// type config struct {
-// 	net      *infra.Network
-// 	n        int
-// 	endnames []string
-// }
-//
-// func make_config(t *testing.T, n int) *config {
-// 	cfg := &config{}
-// 	cfg.net = infra.NewNetwork()
-// 	cfg.n = n
-// 	cfg.endnames = make([]string, cfg.n)
-//
-// 	for i := 0; i < cfg.n; i++ {
-// 		cfg.endnames[i] = fmt.Sprintf("127.0.0.1:%d", 10100+i)
-// 		cfg.net.AddServer(i, cfg.endnames[i])
-// 	}
-// 	return cfg
-// }
-//
 // func randstring(n int) string {
 // 	b := make([]byte, 2*n)
 // 	crand.Read(b)
@@ -56,7 +36,7 @@ package raft
 // 	lastApplied []int64
 // 	start       time.Time // time at which make_config() was called
 // 	// begin()/end() statistics
-// 	t0        time.Time // time at which test_test.go called cfg.begin()
+// 	t0        time.Time // time at which raft_test.go called cfg.begin()
 // 	rpcs0     int       // rpcTotal() at start of test
 // 	cmds0     int       // number of agreements
 // 	bytes0    int64

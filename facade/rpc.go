@@ -9,10 +9,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-// func (c *ClientEnd) Call(method string, args interface{}, reply interface{}) bool {
-// 	return false
-// }
-
 func NewClient(host string) proto.RaftClient {
 	var kacp = keepalive.ClientParameters{
 		Time:                10 * time.Second, // send pings every 10 seconds if there is no activity

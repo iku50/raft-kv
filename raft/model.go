@@ -2,16 +2,13 @@ package raft
 
 type Command interface {
 	ToBytes() []byte
-}
-
-func CommandFromBytes(b []byte) Command {
-	return nil
+	FromBytes([]byte)
 }
 
 // ApplyMsg is the message sent from Raft to the service.
 type ApplyMsg struct {
 	CommandValid bool
-	Command      Command
+	Command      []byte
 	CommandIndex int64
 
 	SnapshotValid bool
