@@ -10,7 +10,7 @@ import (
 )
 
 type Server struct {
-	knownServers []string
+	knownServers []proto.RaftClient
 	port         int
 	me           int32
 	address      string
@@ -25,7 +25,11 @@ type SerOption func(s *Server)
 
 func WithKnownServers(servers []string) SerOption {
 	return func(s *Server) {
-		s.knownServers = servers
+		s.knownServers = make([]proto.RaftClient, len(servers))
+		for i := range servers {
+			conn := facade.NewClient(servers[i])
+			s.knownServers[i] = conn
+		}
 	}
 }
 
@@ -62,6 +66,13 @@ func Default() SerOption {
 	}
 }
 
+func (s *Server) AddKnownServers(servers []string) {
+	for i := range servers {
+		conn := facade.NewClient(servers[i])
+		s.knownServers = append(s.knownServers, conn)
+	}
+}
+
 func NewServer(opts ...SerOption) *Server {
 	ch := make(chan raft.ApplyMsg)
 	db, err := bitcask.NewDB(bitcask.WithDirPath("./data"))
@@ -93,6 +104,10 @@ func (s *Server) apply(command bitcask.Command) (int64, int32, bool) {
 }
 
 func (s *Server) Get(key []byte) ([]byte, error) {
+	_, isLeader := s.raft.GetState()
+	if !isLeader {
+		return nil, fmt.Errorf("not leader")
+	}
 	return s.db.Get(key)
 }
 
@@ -127,7 +142,7 @@ func (s *Server) applyLoop() {
 				if err != nil {
 					panic(err)
 				}
-				fmt.Printf("Put: %v\n", c)
+				fmt.Printf("PUT: %v\n", c)
 			case bitcask.Delete:
 				err := s.db.Delete(c.Key)
 				if err != nil {
@@ -145,18 +160,18 @@ func (s *Server) applyLoop() {
 }
 
 func (s *Server) Start() {
-	p := make([]proto.RaftClient, len(s.knownServers))
-	for i, server := range s.knownServers {
-		p[i] = facade.NewClient(server)
-	}
-	fmt.Println(p, s.me, s.address)
-	s.raft = raft.Make(p, s.me, s.persister, s.applyCh)
+	s.raft = raft.Make(s.knownServers, s.me, s.persister, s.applyCh)
 	s.killCh = make(chan bool)
 	okCh := make(chan bool)
 	go rpc.Start(s.port, s.raft, s.killCh, okCh)
 	<-okCh
 	go s.applyLoop()
 	go s.wait()
+}
+
+func (s *Server) AddKnownServer(address string) {
+
+	s.knownServers = append(s.knownServers)
 }
 
 func (s *Server) wait() {

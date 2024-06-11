@@ -2,6 +2,7 @@ package raft
 
 import (
 	"context"
+	"raft-kv/bitcask"
 	"raft-kv/proto"
 )
 
@@ -18,6 +19,21 @@ func (rf *Raft) sendInstallSnapshot(serverTo int, args *proto.InstallSnapshotArg
 func (rf *Raft) sendAppendEntries(serverTo int, args *proto.AppendEntriesArgs) (reply *proto.AppendEntriesReply, ok bool) {
 	reply, err := rf.peers[serverTo].AppendEntries(context.Background(), args)
 	return reply, err == nil
+}
+
+func (rf *Raft) Apply(args *proto.ApplyArgs) (p *proto.ApplyReply, ok bool) {
+	command := bitcask.Command{
+		Op:    bitcask.Op(args.Command.Op),
+		Key:   []byte(args.Command.Key),
+		Value: []byte(args.Command.Value),
+	}
+	index, term, success := rf.Start(&command)
+	return &proto.ApplyReply{
+		VirtualIndex: index,
+		Term:         term,
+		Success:      success,
+	}, success
+
 }
 
 // InstallSnapshot handler

@@ -20,14 +20,8 @@ func TestInit(t *testing.T) {
 	}
 	serves := make([]*Server, servers)
 	for i := 0; i < servers; i++ {
-		p := make([]string, 0)
-		for j := 0; j < servers; j++ {
-			if j != i {
-				p = append(p, addrs[j])
-			}
-		}
 		ser := NewServer(
-			WithKnownServers(p),
+			WithKnownServers(addrs),
 			WithPort(ports[i]),
 			WithAddress(addrs[i]),
 			WithId(int32(i)),
@@ -45,32 +39,53 @@ func TestInit(t *testing.T) {
 	str := "hello"
 	err := serves[leader].Put([]byte{123, 123}, []byte(str))
 	if err != nil {
-		return
+		t.Fatalf(err.Error())
 	}
 	time.Sleep(1000 * time.Millisecond)
-	for i := 0; i < servers; i++ {
-		value, err := serves[i].Get([]byte{123, 123})
-		if err != nil {
-			t.Fatalf("Get failed")
-		} else {
-			fmt.Printf(">>> %v: %s\n", i, value)
-		}
+	v, err := serves[leader].Get([]byte{123, 123})
+	if err != nil {
+		t.Fatalf(err.Error())
 	}
-	time.Sleep(5000 * time.Millisecond)
+	if string(v) != str {
+		t.Fatalf("should be equal")
+	}
+	time.Sleep(1000 * time.Millisecond)
 	// test delete
 	err = serves[leader].Delete([]byte{123, 123})
 	if err != nil {
 		t.Fatalf("Delete failed")
 	}
-	time.Sleep(5000 * time.Millisecond)
-	for i := 0; i < servers; i++ {
-		_, err := serves[i].Get([]byte{123, 123})
-		if err != nil {
-			t.Log("ok")
-		} else {
-			t.Fatalf("should be delete")
-		}
+	time.Sleep(1000 * time.Millisecond)
+	v, err = serves[leader].Get([]byte{123, 123})
+	if err == nil {
+		t.Fatalf("should be deleted")
 	}
+}
+
+func TestAddServers(t *testing.T) {
+	servers := 3
+	addrs := []string{
+		"127.0.0.1:9991",
+		"127.0.0.1:9992",
+		"127.0.0.1:9993",
+	}
+	ports := []int{
+		9991,
+		9992,
+		9993,
+	}
+	serves := make([]*Server, servers)
+	for i := 0; i < servers; i++ {
+		ser := NewServer(
+			WithKnownServers(addrs),
+			WithPort(ports[i]),
+			WithAddress(addrs[i]),
+			WithId(int32(i)),
+		)
+		serves[i] = ser
+		ser.Start()
+	}
+	time.Sleep(1000 * time.Millisecond)
 }
 
 func GetLeader(servers []*Server) int {

@@ -3,6 +3,7 @@ syntax = "proto3";
 package raftpb;
 
 option go_package = "github.com/raft-kv/raft/proto";
+
 // InstallSnapshotArgs is the argument structure for the InstallSnapshot RPC.
 message InstallSnapshotArgs {
     int32 term = 1;                  // leader’s term
@@ -32,14 +33,14 @@ message AppendEntriesArgs {
 message AppendEntriesReply {
     int32 term = 1;     // currentTerm, for leader to update itself
     bool success = 2;   // true if follower contained entry matching prevLogIndex and prevLogTerm
-    int32 x_term = 3;   // Follower中与Leader冲突的Log对应的Term
-    int64 x_index = 4;  // Follower中，对应Term为XTerm的第一条Log条目的索引
-    int64 x_len = 5;    // Follower的log的长度
+    int32 x_term = 3;   // conflicting term, if success is false
+    int64 x_index = 4;  // conflicting index
+    int64 x_len = 5;    // conflicting length
 }
 
 // Entry is a log entry in the Raft algorithm.
 message Entry {
-    int32 term = 1;
+    int32 term = 1; // The term of the entry.
     bytes cmd = 2; // Assuming Cmd can be serialized to a string.
 }
 

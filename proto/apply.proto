@@ -4,11 +4,27 @@ package raftpb;
 
 option go_package = "github.com/raft-kv/raft/proto";
 
+message Command {
+    enum Op {
+        PUT = 0;
+        GET = 1;
+        DELETE = 2;
+    }
+    Op op = 1;
+    string key = 2;
+    string value = 3;
+}
+
 message ApplyArgs {
-    string addr = 1;
-    string name = 2;
+    Command command = 1;
 }
 
 message ApplyReply {
-    bool success = 1;
+    int64 virtual_index = 1;
+    int32 term = 2;
+    bool success = 3;
+}
+
+service Apply {
+    rpc Apply(ApplyArgs) returns (ApplyReply);
 }

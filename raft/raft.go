@@ -33,8 +33,7 @@ type Raft struct {
 	commitIndex int64
 	lastApplied int64
 	applyCh     chan ApplyMsg
-
-	condApply *sync.Cond
+	condApply   *sync.Cond
 
 	snapShot          []byte
 	lastIncludedIndex int64
@@ -80,7 +79,6 @@ func (rf *Raft) Start(command Command) (int64, int32, bool) {
 		return -1, -1, false
 	}
 	newEntry := &proto.Entry{Term: rf.currentTerm, Cmd: command.ToBytes()}
-	fmt.Printf(">>> leader %d 获得新的 Entry: %v\n", rf.me, newEntry)
 	rf.log = append(rf.log, newEntry)
 	rf.persist()
 
