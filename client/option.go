@@ -17,15 +17,15 @@ func WithClusters(clusters ...string) Option {
 				"127.0.0.1" + ":" + strconv.Itoa(ports[1]),
 				"127.0.0.1" + ":" + strconv.Itoa(ports[2]),
 			}
-			c.clusters = append(c.clusters, cluster.NewClusters(
+			c.clusters[clu] = cluster.NewClusters(
 				cluster.WithName(clu),
 				cluster.WithServers(addrs),
-			))
+			)
 		}
 	}
 }
 
-func WithLoadBalance(lb *LoadBalancer) Option {
+func WithLoadBalance(lb LoadBalancer) Option {
 	return func(c *Client) {
 		c.loadBalancer = lb
 	}

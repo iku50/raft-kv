@@ -34,18 +34,17 @@ func WithServers(servers []string) Option {
 	return func(clu *Cluster) {
 		serves := make([]*server.Server, 0)
 		for i := 0; i < len(servers); i++ {
-			p := make([]string, 0)
 			portStr := strings.Split(servers[i], ":")[1]
 			port, _ := strconv.Atoi(portStr)
 			ser := server.NewServer(
-				server.WithKnownServers(p),
+				server.WithKnownServers(servers),
 				server.WithPort(port),
 				server.WithAddress(servers[i]),
 				server.WithId(int32(i)),
 			)
-			serves[i] = ser
-			ser.Start()
+			serves = append(serves, ser)
 		}
+		clu.Servers = serves
 	}
 }
 
@@ -85,4 +84,10 @@ func (c *Cluster) Delete(key []byte) error {
 		return errors.New("no leader")
 	}
 	return leader.Delete(key)
+}
+
+func (c *Cluster) Start() {
+	for i := 0; i < len(c.Servers); i++ {
+		go c.Servers[i].Start()
+	}
 }
