@@ -13,4 +13,4 @@ The implementation of Raft partially refer to [ToniXWD's impl](https://github.co
 
 ## Getting Start
 
-look up [server_test.go](./server/server_test.go) and considered it as an example.
+look up [client_test.go](./client/client_test.go) and considered it as an example.

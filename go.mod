@@ -5,6 +5,7 @@ go 1.22.3
 require (
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/go-playground/assert/v2 v2.2.0
+	github.com/gorilla/mux v1.8.1
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.1
 )
