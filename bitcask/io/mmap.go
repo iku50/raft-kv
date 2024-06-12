@@ -6,6 +6,7 @@ import (
 	"github.com/edsrzf/mmap-go"
 )
 
+// for now mmap don't work.
 type MMap struct {
 	data mmap.MMap
 	fd   *os.File
@@ -20,11 +21,11 @@ func NewMMapIOManager(fileName string) (*MMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := mmap.Map(fd, mmap.RDWR, 0)
+	mm, err := mmap.Map(fd, mmap.RDWR, 0)
 	if err != nil {
 		return nil, err
 	}
-	return &MMap{data: data, fd: fd}, nil
+	return &MMap{data: mm, fd: fd}, nil
 }
 
 func (mio *MMap) Read(b []byte, offset int64) (int, error) {

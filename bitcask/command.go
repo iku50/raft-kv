@@ -21,8 +21,7 @@ type Command struct {
 
 func (c *Command) ToBytes() []byte {
 	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(c)
+	err := gob.NewEncoder(&buf).Encode(c)
 	if err != nil {
 		panic(err)
 	}
@@ -31,8 +30,7 @@ func (c *Command) ToBytes() []byte {
 
 func (c *Command) FromBytes(b []byte) {
 	var command Command
-	dec := gob.NewDecoder(bytes.NewBuffer(b))
-	err := dec.Decode(&command)
+	err := gob.NewDecoder(bytes.NewBuffer(b)).Decode(&command)
 	if err != nil {
 		panic(err)
 	}

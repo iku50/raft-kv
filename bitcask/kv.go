@@ -5,10 +5,6 @@ import (
 	"os"
 	"raft-kv/bitcask/data"
 	"raft-kv/bitcask/index"
-	"raft-kv/bitcask/io"
-	"sort"
-	"strconv"
-	"strings"
 	"sync"
 )
 
@@ -24,18 +20,23 @@ type BitCask interface {
 	Delete(key []byte) error
 
 	// List() (key []string, err error)
-	// Merge() error
+
+	Merge() error
+
 	Sync() error
 
 	Close()
 }
 
 type DB struct {
-	mu          *sync.RWMutex
-	fileIds     []int
-	dirPath     string
-	activeFile  *data.File
-	olderFiles  map[uint32]*data.File
+	mu      *sync.RWMutex
+	fileIds []int
+	dirPath string
+
+	activeFile *data.File
+	hintFile   *data.File
+	olderFiles map[uint32]*data.File
+
 	index       index.Indexer
 	bytesWrite  uint
 	reclaimSize int64
@@ -53,17 +54,19 @@ type Stat struct {
 var (
 	ErrKeyIsEmpty             = errors.New("key is empty")
 	ErrKeyNotFound            = errors.New("key not found")
-	ErrFileNotFound           = errors.New("key not found")
+	ErrFileNotFound           = errors.New("file not found")
 	ErrDataDirectoryCorrupted = errors.New("data directory corrupted")
 )
 
 func (db *DB) Close() {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+	// close index
 	err := db.index.Close()
 	if err != nil {
 		return
 	}
+	// close active file and older files
 	err = db.activeFile.Close()
 	for _, file := range db.olderFiles {
 		if err := file.Close(); err != nil {
@@ -90,7 +93,7 @@ func WithDirPath(dir string) Option {
 func NewDB(option ...Option) (*DB, error) {
 	db := DB{
 		mu:         &sync.RWMutex{},
-		dirPath:    "",
+		dirPath:    "data",
 		activeFile: nil,
 		olderFiles: make(map[uint32]*data.File),
 		index:      nil,
@@ -111,15 +114,15 @@ func NewDB(option ...Option) (*DB, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		if len(entries) == 0 {
 			isInitial = true
 		}
 	}
-	if !isInitial {
-		return nil, errors.New("not initial")
-	}
 	db.index = index.NewSimMap()
+	if isInitial {
+		return &db, nil
+	}
+
 	if err := db.loadDataFile(); err != nil {
 		return nil, err
 	}
@@ -171,9 +174,6 @@ func (db *DB) Delete(key []byte) error {
 }
 
 func (db *DB) Get(key []byte) ([]byte, error) {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-
 	if len(key) == 0 {
 		return nil, ErrKeyIsEmpty
 	}
@@ -181,6 +181,8 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	if logRecordPos == nil {
 		return nil, ErrKeyNotFound
 	}
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	return db.getValueByPosition(logRecordPos)
 }
 
@@ -207,127 +209,4 @@ func (db *DB) Stat() *Stat {
 		DataFileNum:     dataFiles,
 		ReclaimableSize: db.reclaimSize,
 	}
-}
-
-func (db *DB) getValueByPosition(logRecordPos *data.LogRecordIndex) ([]byte, error) {
-	var dataFile *data.File
-	if db.activeFile.FileId == logRecordPos.Fid {
-		dataFile = db.activeFile
-	} else {
-		dataFile = db.olderFiles[logRecordPos.Fid]
-	}
-	if dataFile == nil {
-		return nil, ErrFileNotFound
-	}
-
-	logRecord, _, err := dataFile.ReadLogRecord(logRecordPos.Offset)
-	if err != nil {
-		return nil, err
-	}
-
-	if logRecord.Type == data.LogRecordDeleted {
-		return nil, ErrKeyNotFound
-	}
-
-	return logRecord.Value, nil
-}
-
-func (db *DB) appendLogRecord(logRecord *data.LogRecord) (*data.LogRecordIndex, error) {
-	if db.activeFile == nil {
-		if err := db.setActiveDataFile(); err != nil {
-			return nil, err
-		}
-	}
-
-	encRecord, size := data.EncodeLogRecord(logRecord)
-	if db.activeFile.WriteOff+size > DataFileSize {
-		if err := db.activeFile.Sync(); err != nil {
-			return nil, err
-		}
-
-		db.olderFiles[db.activeFile.FileId] = db.activeFile
-
-		if err := db.setActiveDataFile(); err != nil {
-			return nil, err
-		}
-	}
-
-	writeOff := db.activeFile.WriteOff
-	if err := db.activeFile.Write(encRecord); err != nil {
-		return nil, err
-	}
-
-	db.bytesWrite += uint(size)
-
-	if err := db.activeFile.Sync(); err != nil {
-		return nil, err
-	}
-	if db.bytesWrite > 0 {
-		db.bytesWrite = 0
-	}
-
-	// 构造内存索引信息
-	pos := &data.LogRecordIndex{
-		Fid:    db.activeFile.FileId,
-		Offset: writeOff,
-		Size:   uint32(size),
-	}
-	return pos, nil
-}
-
-func (db *DB) appendLogRecordWithLock(logRecord *data.LogRecord) (*data.LogRecordIndex, error) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	return db.appendLogRecord(logRecord)
-}
-
-func (db *DB) setActiveDataFile() error {
-	var initialField uint32 = 0
-	if db.activeFile != nil {
-		initialField = db.activeFile.FileId + 1
-	}
-
-	dataFile, err := data.OpenDataFile(db.dirPath, initialField, io.FIO)
-	if err != nil {
-		return err
-	}
-	db.activeFile = dataFile
-
-	return nil
-}
-
-func (db *DB) loadDataFile() error {
-	dirEntries, err := os.ReadDir(db.dirPath)
-	if err != nil {
-		return err
-	}
-
-	var fileIds []int
-	for _, entry := range dirEntries {
-		if strings.HasSuffix(entry.Name(), data.FileNameSuffix) {
-			splitNames := strings.Split(entry.Name(), ".")
-			fileId, err := strconv.Atoi(splitNames[0])
-			if err != nil {
-				return ErrDataDirectoryCorrupted
-			}
-			fileIds = append(fileIds, fileId)
-		}
-	}
-
-	sort.Ints(fileIds)
-	db.fileIds = fileIds
-
-	for i, fid := range fileIds {
-		ioType := io.FIO
-		dataFile, err := data.OpenDataFile(db.dirPath, uint32(fid), ioType)
-		if err != nil {
-			return err
-		}
-		if i == len(fileIds)-1 {
-			db.activeFile = dataFile
-		} else {
-			db.olderFiles[uint32(fid)] = dataFile
-		}
-	}
-	return nil
 }

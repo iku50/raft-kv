@@ -36,7 +36,13 @@ func main() {
 		client.WithClusters("region", "country"),
 		client.WithLoadBalance(&lb),
 	)
-	go _cli.Start()
+	_cli.Start()
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	go func() {
+		<-stopCh
+		_cli.Stop()
+	}()
 	r := mux.NewRouter()
 	r.HandleFunc("/{key}", get).Methods(http.MethodGet)
 	r.HandleFunc("/{key}", put).Methods(http.MethodPost)

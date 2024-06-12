@@ -54,9 +54,10 @@ func newDataFile(fileName string, fileId uint32, ioType io.FileIOType) (*File, e
 	if err != nil {
 		return nil, err
 	}
+	fileSize, err := ioManager.Size()
 	return &File{
 		FileId:    fileId,
-		WriteOff:  0,
+		WriteOff:  fileSize,
 		IoManager: ioManager,
 	}, nil
 }

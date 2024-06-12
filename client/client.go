@@ -31,3 +31,9 @@ func (c *Client) Start() {
 		s.Start()
 	}
 }
+
+func (c *Client) Stop() {
+	for _, s := range c.clusters {
+		s.Stop()
+	}
+}

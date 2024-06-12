@@ -91,3 +91,9 @@ func (c *Cluster) Start() {
 		go c.Servers[i].Start()
 	}
 }
+
+func (c *Cluster) Stop() {
+	for i := 0; i < len(c.Servers); i++ {
+		go c.Servers[i].Close()
+	}
+}

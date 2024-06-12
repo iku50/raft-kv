@@ -57,12 +57,14 @@ func WithPersister(p *raft.Persister) SerOption {
 	}
 }
 
-func Default() SerOption {
-	return func(s *Server) {
-		s.address = "127.0.0.1"
-		s.me = 1
-		s.port = 5001
-		s.persister = raft.MakePersister()
+func Default() *Server {
+	return &Server{
+		address:   "127.0.0.1",
+		me:        1,
+		applyCh:   make(chan raft.ApplyMsg),
+		port:      5001,
+		persister: raft.MakePersister(),
+		killCh:    make(chan bool),
 	}
 }
 
@@ -74,20 +76,15 @@ func (s *Server) AddKnownServers(servers []string) {
 }
 
 func NewServer(opts ...SerOption) *Server {
-	ch := make(chan raft.ApplyMsg)
-	db, err := bitcask.NewDB(bitcask.WithDirPath("./data"))
-	if err != nil {
-		panic(err)
-	}
-	s := &Server{
-		applyCh: ch,
-		db:      db,
-	}
-	Default()(s)
+	s := Default()
 	for _, opt := range opts {
 		opt(s)
 	}
-	fmt.Println(s.me, s.address)
+	db, err := bitcask.NewDB(bitcask.WithDirPath("./data/" + fmt.Sprint(s.address)))
+	if err != nil {
+		panic(err)
+	}
+	s.db = db
 	return s
 }
 
@@ -133,6 +130,9 @@ func (s *Server) applyLoop() {
 	for {
 		select {
 		case msg := <-s.applyCh:
+			if msg.Command == nil {
+				return
+			}
 			c := bitcask.Command{}
 			c.FromBytes(msg.Command)
 			fmt.Printf("Apply: %v\n", c)
