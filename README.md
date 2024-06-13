@@ -2,7 +2,7 @@
 
 A distributed kv storage system use raft and bitcask.
 
-**This project is under rapid development and aims to provide a reference implementation for a distributed key-value storage system. Please note that the API and project structure are subject to significant changes as development progresses. This project is intended for reference purposes only.**
+~~This project is under rapid development and aims to provide a reference implementation for a distributed key-value storage system. Please note that the API and project structure are subject to significant changes as development progresses. This project is intended for reference purposes only.~~
 
 The implementation of Raft partially refer to [ToniXWD's impl](https://github.com/ToniXWD/MIT6.5840)
 

@@ -33,12 +33,14 @@ func (b *DB) Merge() error {
 			}
 			offset += l
 		}
+
 		b.mu.Lock()
 		b.bytesWrite -= uint(f.WriteOff)
 		b.reclaimSize -= f.WriteOff
 		delete(b.olderFiles, id)
 		err := os.Remove(f.GetFileName())
 		b.mu.Unlock()
+
 		if err != nil {
 			return err
 		}

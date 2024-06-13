@@ -6,7 +6,7 @@ import (
 	"raft-kv/raft/proto"
 )
 
-// save Raft's persistent state to stable storage,
+// persist save Raft's persistent state to stable storage,
 // where it can later be retrieved after a crash and restart.
 func (rf *Raft) persist() {
 	w := new(bytes.Buffer)

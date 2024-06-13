@@ -37,6 +37,15 @@ func (s SimMap) Delete(key []byte) (*data.LogRecordIndex, bool) {
 	return pos.(*data.LogRecordIndex), true
 }
 
+func (s SimMap) Scan() map[string]*data.LogRecordIndex {
+	pos := make(map[string]*data.LogRecordIndex)
+	s.m.Range(func(key, value interface{}) bool {
+		pos[key.(string)] = value.(*data.LogRecordIndex)
+		return true
+	})
+	return pos
+}
+
 func (s SimMap) Iterator(reverse bool) Iterator {
 	// we just don't support this
 	return nil

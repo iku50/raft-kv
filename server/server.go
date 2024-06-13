@@ -97,7 +97,7 @@ func (s *Server) IsLeader() bool {
 }
 
 func (s *Server) apply(command bitcask.Command) (int64, int32, bool) {
-	return s.raft.Start(&command)
+	return s.raft.Do(&command)
 }
 
 func (s *Server) Get(key []byte) ([]byte, error) {
