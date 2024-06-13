@@ -5,7 +5,9 @@ import (
 	"os"
 	"raft-kv/bitcask/data"
 	"raft-kv/bitcask/index"
+	"raft-kv/bitcask/io"
 	"sync"
+	"time"
 )
 
 // now it just a simple key-value store
@@ -29,7 +31,10 @@ type BitCask interface {
 }
 
 type DB struct {
-	mu      *sync.RWMutex
+	mu     *sync.RWMutex
+	wg     *sync.WaitGroup
+	stopCh chan struct{}
+
 	fileIds []int
 	dirPath string
 
@@ -59,6 +64,8 @@ var (
 )
 
 func (db *DB) Close() {
+	db.stopCh <- struct{}{}
+	db.wg.Wait()
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	// close index
@@ -66,6 +73,7 @@ func (db *DB) Close() {
 	if err != nil {
 		return
 	}
+
 	// close active file and older files
 	err = db.activeFile.Close()
 	for _, file := range db.olderFiles {
@@ -97,15 +105,15 @@ func NewDB(option ...Option) (*DB, error) {
 		activeFile: nil,
 		olderFiles: make(map[uint32]*data.File),
 		index:      nil,
+		wg:         &sync.WaitGroup{},
+		stopCh:     make(chan struct{}),
 	}
 	for _, opt := range option {
 		if err := opt(&db); err != nil {
 			return nil, err
 		}
 	}
-	var isInitial bool
 	if _, err := os.Stat(db.dirPath); os.IsNotExist(err) {
-		isInitial = true
 		if err = os.MkdirAll(db.dirPath, os.ModePerm); err != nil {
 			return nil, err
 		}
@@ -115,18 +123,42 @@ func NewDB(option ...Option) (*DB, error) {
 			return nil, err
 		}
 		if len(entries) == 0 {
-			isInitial = true
+			if _, err = data.OpenDataFile(db.dirPath, 0, io.FIO); err != nil {
+				return nil, err
+			}
 		}
 	}
 	db.index = index.NewSimMap()
-	if isInitial {
-		return &db, nil
-	}
 
 	if err := db.loadDataFile(); err != nil {
 		return nil, err
 	}
+	db.wg.Add(1)
+	go db.mergeLoop()
 	return &db, nil
+}
+
+func (db *DB) mergeLoop() {
+	for {
+		timer := time.NewTimer(time.Second * 30)
+		select {
+		case <-db.stopCh:
+			db.wg.Done()
+			return
+		case <-timer.C:
+			db.mu.RLock()
+			if db.reclaimSize > 3*DataFileSize {
+				db.mu.RUnlock()
+				err := db.Merge()
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				db.mu.RUnlock()
+			}
+			timer.Reset(time.Second * 30)
+		}
+	}
 }
 
 func (db *DB) Put(key []byte, value []byte) error {

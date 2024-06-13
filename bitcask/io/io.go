@@ -8,6 +8,7 @@ type Manager interface {
 	Sync() error
 	Close() error
 	Size() (int64, error)
+	GetFileName() string
 }
 
 type FileIOType uint8

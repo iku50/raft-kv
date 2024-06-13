@@ -63,3 +63,7 @@ func (mio *MMap) Close() error {
 func (mio *MMap) Size() (int64, error) {
 	return int64(len(mio.data)), nil
 }
+
+func (mio *MMap) GetFileName() string {
+	return mio.fd.Name()
+}

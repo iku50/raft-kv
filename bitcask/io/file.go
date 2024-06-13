@@ -41,3 +41,7 @@ func (fio *FileIO) Size() (int64, error) {
 	}
 	return stat.Size(), nil
 }
+
+func (fio *FileIO) GetFileName() string {
+	return fio.fd.Name()
+}

@@ -1,10 +1,12 @@
 package bitcask
 
+import "os"
+
 // Merge merges all the old files in the database.
 func (b *DB) Merge() error {
-	ml := int64(0)
-	for i := 0; i < len(b.olderFiles); i-- {
-		id := uint32(b.fileIds[i])
+	target := b.fileIds[len(b.fileIds)-1]
+	for b.fileIds[0] < target {
+		id := uint32(b.fileIds[0])
 		if id == b.activeFile.FileId {
 			continue
 		}
@@ -19,7 +21,6 @@ func (b *DB) Merge() error {
 				return err
 			}
 			if p := b.index.Get(log.Key); p.Fid == id && p.Offset == offset {
-				ml += l
 				b.mu.Lock()
 				b.index.Delete(log.Key)
 				index, err := b.appendLogRecord(log)
@@ -36,7 +37,12 @@ func (b *DB) Merge() error {
 		b.bytesWrite -= uint(f.WriteOff)
 		b.reclaimSize -= f.WriteOff
 		delete(b.olderFiles, id)
-		b.fileIds = append(b.fileIds[:i], b.fileIds[i+1:]...)
+		err := os.Remove(f.GetFileName())
+		b.mu.Unlock()
+		if err != nil {
+			return err
+		}
+		b.fileIds = b.fileIds[1:]
 	}
 	return nil
 }

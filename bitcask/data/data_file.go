@@ -157,3 +157,7 @@ func (df *File) readNBytes(n int64, offset int64) (b []byte, err error) {
 	_, err = df.IoManager.Read(b, offset)
 	return
 }
+
+func (df *File) GetFileName() string {
+	return df.IoManager.GetFileName()
+}

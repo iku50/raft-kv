@@ -7,19 +7,15 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-playground/assert/v2"
 )
 
 func TestNewDB(t *testing.T) {
-	db, err := NewDB(
-		WithDirPath("test_db"),
-	)
-	if err != nil {
-		t.Error(err)
-	}
-	defer db.Close()
+	db := initBitCask()
 	key := []byte("hello")
 	value := []byte("world")
-	err = db.Put(key, value)
+	err := db.Put(key, value)
 	if err != nil {
 		t.Error(err)
 	}
@@ -29,13 +25,31 @@ func TestNewDB(t *testing.T) {
 	}
 }
 
-func randomKeyValue() ([]byte, []byte) {
+func TestDB_Merge(t *testing.T) {
+	db := initBitCask()
+	key := make([]byte, 10)
+	value := make([]byte, 1024*1024)
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	key := make([]byte, 16)
-	value := make([]byte, 128)
 	r.Read(key)
 	r.Read(value)
-	return key, value
+	for i := 0; i < 2048; i++ {
+		err := db.Put(key, value)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+	ch := make(chan struct{})
+	go func(chan struct{}) {
+		defer close(ch)
+		err := db.Merge()
+		if err != nil {
+			return
+		}
+	}(ch)
+	val, err := db.Get(key)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, string(val), string(value))
+	<-ch
 }
 
 type benchmarkTestCase struct {
@@ -43,20 +57,19 @@ type benchmarkTestCase struct {
 	size int
 }
 
+var tests = []benchmarkTestCase{
+	{"128B", 128},
+	{"256B", 256},
+	{"512B", 512},
+	{"1K", 1024},
+	{"2K", 2048},
+	{"4K", 4096},
+	{"8K", 8192},
+	{"16K", 16384},
+	{"32K", 32768},
+}
+
 func BenchmarkGet(b *testing.B) {
-
-	tests := []benchmarkTestCase{
-		{"128B", 128},
-		{"256B", 256},
-		{"512B", 512},
-		{"1K", 1024},
-		{"2K", 2048},
-		{"4K", 4096},
-		{"8K", 8192},
-		{"16K", 16384},
-		{"32K", 32768},
-	}
-
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
 			b.SetBytes(int64(tt.size))
@@ -85,18 +98,6 @@ func BenchmarkGet(b *testing.B) {
 }
 
 func BenchmarkPut(b *testing.B) {
-
-	tests := []benchmarkTestCase{
-		{"128B", 128},
-		{"256B", 256},
-		{"1K", 1024},
-		{"2K", 2048},
-		{"4K", 4096},
-		{"8K", 8192},
-		{"16K", 16384},
-		{"32K", 32768},
-	}
-
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
 			b.SetBytes(int64(tt.size))
@@ -116,10 +117,10 @@ func BenchmarkPut(b *testing.B) {
 
 func initBitCask() BitCask {
 	currentDir, err := os.Getwd()
-	testdir, err := os.MkdirTemp(currentDir, "bitcask_bench")
-	defer os.RemoveAll(testdir)
+	testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
+	defer os.RemoveAll(testDir)
 	db, err := NewDB(
-		WithDirPath("testdb"),
+		WithDirPath(testDir),
 	)
 	if err != nil {
 		panic(err)
