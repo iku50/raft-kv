@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"raft-kv/bitcask"
 	"raft-kv/facade"
-	"raft-kv/proto"
 	"raft-kv/raft"
+	"raft-kv/raft/proto"
 	"raft-kv/raft/rpc"
 )
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 	"net"
-	"raft-kv/proto"
 	"raft-kv/raft"
+	"raft-kv/raft/proto"
 	"strconv"
 
 	"google.golang.org/grpc"
@@ -14,7 +14,6 @@ import (
 type RpcRaft struct {
 	rf *raft.Raft
 	proto.UnimplementedRaftServer
-	proto.UnimplementedApplyServer
 }
 
 func (rr *RpcRaft) RequestVote(ctx context.Context, p *proto.RequestVoteArgs) (*proto.RequestVoteReply, error) {
@@ -32,10 +31,6 @@ func (rr *RpcRaft) InstallSnapshot(ctx context.Context, p *proto.InstallSnapshot
 	rr.rf.InstallSnapshot(p, &reply)
 	return &reply, nil
 }
-func (rr *RpcRaft) Apply(ctx context.Context, p *proto.ApplyArgs) (*proto.ApplyReply, error) {
-	reply, _ := rr.rf.Apply(p)
-	return reply, nil
-}
 
 func Start(port int, rf *raft.Raft, killCh chan bool, okCh chan bool) {
 	lis, err := net.Listen("tcp", ":"+strconv.Itoa(port))
@@ -44,7 +39,6 @@ func Start(port int, rf *raft.Raft, killCh chan bool, okCh chan bool) {
 	}
 	server := grpc.NewServer()
 	proto.RegisterRaftServer(server, &RpcRaft{rf: rf})
-	proto.RegisterApplyServer(server, &RpcRaft{rf: rf})
 	log.Printf("Raft server started on port %d", port)
 	okCh <- true
 	if err := server.Serve(lis); err != nil {

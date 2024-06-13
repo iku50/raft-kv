@@ -1,7 +1,7 @@
 package facade
 
 import (
-	"raft-kv/proto"
+	"raft-kv/raft/proto"
 	"time"
 
 	"google.golang.org/grpc"

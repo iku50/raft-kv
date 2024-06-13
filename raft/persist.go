@@ -3,7 +3,7 @@ package raft
 import (
 	"bytes"
 	"encoding/gob"
-	"raft-kv/proto"
+	"raft-kv/raft/proto"
 )
 
 // save Raft's persistent state to stable storage,

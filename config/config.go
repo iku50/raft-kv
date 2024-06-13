@@ -1,6 +1,7 @@
 package config
 
-type Server struct {
+type Cluster struct {
+	Address []string `yaml:"address"`
 }
 
 type Config struct {

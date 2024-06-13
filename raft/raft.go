@@ -1,11 +1,9 @@
 package raft
 
 import (
-	//	"bytes"
-
 	"fmt"
 	"math/rand"
-	"raft-kv/proto"
+	"raft-kv/raft/proto"
 	"sync"
 	"sync/atomic"
 	"time"
