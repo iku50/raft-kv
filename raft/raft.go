@@ -82,7 +82,7 @@ func (rf *Raft) Do(command Command) (int64, int32, bool) {
 func (rf *Raft) Read(command Command) (int64, int32, bool) {
 	// for a read-only command, we use lease read
 	// to insure this rf server is leader
-
+	return rf.Do(command)
 }
 
 func (rf *Raft) commitChecker() {

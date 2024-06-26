@@ -63,7 +63,7 @@ func Default() *Server {
 		me:        1,
 		applyCh:   make(chan raft.ApplyMsg),
 		port:      5001,
-		persister: raft.MakePersister(),
+		persister: raft.MakePersister("raftServer"),
 		killCh:    make(chan bool),
 	}
 }
