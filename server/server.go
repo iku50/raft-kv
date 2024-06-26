@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"raft-kv/bitcask"
-	"raft-kv/facade"
 	"raft-kv/raft"
 	"raft-kv/raft/proto"
 	"raft-kv/raft/rpc"
@@ -27,7 +26,7 @@ func WithKnownServers(servers []string) SerOption {
 	return func(s *Server) {
 		s.knownServers = make([]proto.RaftClient, len(servers))
 		for i := range servers {
-			conn := facade.NewClient(servers[i])
+			conn := rpc.NewClient(servers[i])
 			s.knownServers[i] = conn
 		}
 	}
@@ -70,7 +69,7 @@ func Default() *Server {
 
 func (s *Server) AddKnownServers(servers []string) {
 	for i := range servers {
-		conn := facade.NewClient(servers[i])
+		conn := rpc.NewClient(servers[i])
 		s.knownServers = append(s.knownServers, conn)
 	}
 }

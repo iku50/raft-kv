@@ -1,4 +1,4 @@
-package facade
+package rpc
 
 import (
 	"raft-kv/raft/proto"
