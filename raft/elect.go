@@ -88,8 +88,6 @@ func (rf *Raft) elect() {
 
 // RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *proto.RequestVoteArgs, reply *proto.RequestVoteReply) {
-	// Your code here (2A, 2B).
-
 	rf.mu.Lock()
 	rf.mu.Unlock()
 
@@ -100,7 +98,7 @@ func (rf *Raft) RequestVote(args *proto.RequestVoteArgs, reply *proto.RequestVot
 	}
 
 	if args.Term > rf.currentTerm {
-		rf.currentTerm = args.Term // 更新到更新的term
+		rf.currentTerm = args.Term
 		rf.votedFor = -1
 		rf.role = Follower
 		rf.persist()

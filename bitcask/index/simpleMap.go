@@ -10,14 +10,14 @@ type SimMap struct {
 }
 
 func (s SimMap) Put(key []byte, pos *data.LogRecordIndex) *data.LogRecordIndex {
-	// trans key to string
+	// trans bytes to string
 	sk := string(key)
 	s.m.Store(sk, pos)
 	return pos
 }
 
 func (s SimMap) Get(key []byte) *data.LogRecordIndex {
-	// trans key to string
+	// trans bytes to string
 	sk := string(key)
 	pos, _ := s.m.Load(sk)
 	if pos == nil {
@@ -27,7 +27,7 @@ func (s SimMap) Get(key []byte) *data.LogRecordIndex {
 }
 
 func (s SimMap) Delete(key []byte) (*data.LogRecordIndex, bool) {
-	// trans key to string
+	// trans bytes to string
 	sk := string(key)
 	pos, ok := s.m.Load(sk)
 	if !ok {
