@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"raft-kv/bitcask"
+	"raft-kv/bitcask/index"
 	"raft-kv/raft"
 	"raft-kv/raft/proto"
 	"raft-kv/raft/rpc"
@@ -79,7 +80,10 @@ func NewServer(opts ...SerOption) *Server {
 	for _, opt := range opts {
 		opt(s)
 	}
-	db, err := bitcask.NewDB(bitcask.WithDirPath("./data/" + fmt.Sprint(s.address)))
+	db, err := bitcask.NewDB(
+		bitcask.WithDirPath("./data/"+fmt.Sprint(s.address)),
+		bitcask.WithIndex(index.NewBPTree(32)),
+	)
 	if err != nil {
 		panic(err)
 	}

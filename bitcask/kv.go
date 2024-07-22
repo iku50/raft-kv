@@ -98,6 +98,16 @@ func WithDirPath(dir string) Option {
 	}
 }
 
+func WithIndex(index index.Indexer) Option {
+	return func(db *DB) error {
+		if index == nil {
+			return errors.New("empty index")
+		}
+		db.index = index
+		return nil
+	}
+}
+
 func NewDB(option ...Option) (*DB, error) {
 	db := DB{
 		mu:         &sync.RWMutex{},
@@ -128,8 +138,10 @@ func NewDB(option ...Option) (*DB, error) {
 			}
 		}
 	}
-	db.index = index.NewSimMap()
+	if db.index == nil {
 
+		db.index = index.NewSimMap()
+	}
 	if err := db.loadDataFile(); err != nil {
 		return nil, err
 	}

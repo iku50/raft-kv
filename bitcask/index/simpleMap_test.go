@@ -8,8 +8,8 @@ import (
 	"github.com/go-playground/assert/v2"
 )
 
-func TestBPTree(t *testing.T) {
-	b := NewBPTree(4)
+func TestMapTree(t *testing.T) {
+	b := NewSimMap()
 	m := map[string]*data.LogRecordIndex{}
 	for i := 0; i < 30; i++ {
 		m[fmt.Sprintf("%d", i)] = &data.LogRecordIndex{Fid: uint32(i)}
@@ -17,7 +17,7 @@ func TestBPTree(t *testing.T) {
 	for k, v := range m {
 		b.Put([]byte(k), v)
 	}
-	println(b.root.String(0))
+	// println(b.root.String(0))
 	data := [][]byte{
 		[]byte("1"), []byte("2"), []byte("15"), []byte("18"),
 	}
@@ -27,7 +27,7 @@ func TestBPTree(t *testing.T) {
 	for _, v := range data {
 		b.Delete(v)
 	}
-	println(b.root.String(0))
+	// println(b.root.String(0))
 
 	for _, v := range data {
 		assert.Equal(t, b.Get(v), nil)
@@ -35,25 +35,25 @@ func TestBPTree(t *testing.T) {
 	fmt.Printf("%v", b.Scan())
 }
 
-func BenchmarkBPTreeInsert(b *testing.B) {
-	tree := NewBPTree(32)
+func BenchmarkMapInsert(b *testing.B) {
+	m := NewSimMap()
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
 		key := fmt.Sprintf("%d", i)
 		value := &data.LogRecordIndex{Fid: uint32(i)}
-		tree.Put([]byte(key), value)
+		m.Put([]byte(key), value)
 	}
 }
 
-func BenchmarkBPTreeGet(b *testing.B) {
-	tree := NewBPTree(32)
+func BenchmarkMapTreeGet(b *testing.B) {
+	mm := NewSimMap()
 	m := map[string]*data.LogRecordIndex{}
 	for i := 0; i < 1000; i++ {
 		key := fmt.Sprintf("%d", i)
 		value := &data.LogRecordIndex{Fid: uint32(i)}
 		m[key] = value
-		tree.Put([]byte(key), value)
+		mm.Put([]byte(key), value)
 	}
 
 	b.ResetTimer()
@@ -61,18 +61,18 @@ func BenchmarkBPTreeGet(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		key := fmt.Sprintf("%d", i%1000)
-		tree.Get([]byte(key))
+		mm.Get([]byte(key))
 	}
 }
 
-func BenchmarkBPTreeDelete(b *testing.B) {
-	tree := NewBPTree(32)
+func BenchmarkMapDelete(b *testing.B) {
+	mm := NewSimMap()
 	m := map[string]*data.LogRecordIndex{}
 	for i := 0; i < 1000; i++ {
 		key := fmt.Sprintf("%d", i)
 		value := &data.LogRecordIndex{Fid: uint32(i)}
 		m[key] = value
-		tree.Put([]byte(key), value)
+		mm.Put([]byte(key), value)
 	}
 
 	b.ResetTimer()
@@ -80,6 +80,7 @@ func BenchmarkBPTreeDelete(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		key := fmt.Sprintf("%d", i%1000)
-		tree.Delete([]byte(key))
+		mm.Delete([]byte(key))
+		assert.Equal(b, mm.Get([]byte(key)), nil)
 	}
 }

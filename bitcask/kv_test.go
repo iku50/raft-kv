@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"math/rand"
 	"os"
+	"raft-kv/bitcask/index"
 	"strings"
 	"testing"
 	"time"
@@ -121,6 +122,7 @@ func initBitCask() BitCask {
 	defer os.RemoveAll(testDir)
 	db, err := NewDB(
 		WithDirPath(testDir),
+		WithIndex(index.NewBPTree(32)),
 	)
 	if err != nil {
 		panic(err)
