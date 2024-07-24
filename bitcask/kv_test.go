@@ -13,10 +13,16 @@ import (
 )
 
 func TestNewDB(t *testing.T) {
-	db := initBitCask()
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
+	defer os.Remove(testDir)
+	db := initBitCask(testDir)
 	key := []byte("hello")
 	value := []byte("world")
-	err := db.Put(key, value)
+	err = db.Put(key, value)
 	if err != nil {
 		t.Error(err)
 	}
@@ -27,7 +33,13 @@ func TestNewDB(t *testing.T) {
 }
 
 func TestDB_Merge(t *testing.T) {
-	db := initBitCask()
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
+	defer os.Remove(testDir)
+	db := initBitCask(testDir)
 	key := make([]byte, 10)
 	value := make([]byte, 1024*1024)
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -74,10 +86,16 @@ func BenchmarkGet(b *testing.B) {
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
 			b.SetBytes(int64(tt.size))
-			db := initBitCask()
+			currentDir, err := os.Getwd()
+			if err != nil {
+				b.Fatal(err)
+			}
+			testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
+			defer os.Remove(testDir)
+			db := initBitCask(testDir)
 			key := []byte("foo")
 			value := []byte(strings.Repeat(" ", tt.size))
-			err := db.Put(key, value)
+			err = db.Put(key, value)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -102,7 +120,13 @@ func BenchmarkPut(b *testing.B) {
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
 			b.SetBytes(int64(tt.size))
-			db := initBitCask()
+			currentDir, err := os.Getwd()
+			if err != nil {
+				b.Fatal(err)
+			}
+			testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
+			defer os.Remove(testDir)
+			db := initBitCask(testDir)
 			key := []byte("foo")
 			value := []byte(strings.Repeat(" ", tt.size))
 			b.ResetTimer()
@@ -112,14 +136,12 @@ func BenchmarkPut(b *testing.B) {
 					b.Fatal(err)
 				}
 			}
+
 		})
 	}
 }
 
-func initBitCask() BitCask {
-	currentDir, err := os.Getwd()
-	testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
-	defer os.RemoveAll(testDir)
+func initBitCask(testDir string) BitCask {
 	db, err := NewDB(
 		WithDirPath(testDir),
 		WithIndex(index.NewBPTree(32)),

@@ -15,7 +15,7 @@ func (db *DB) setActiveDataFile() error {
 		initialField = db.activeFile.FileId + 1
 	}
 
-	dataFile, err := data.OpenDataFile(db.dirPath, initialField, io.FIO)
+	dataFile, err := data.OpenDataFile(db.dirPath, initialField, io.MemoryMap)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func (db *DB) loadDataFile() error {
 	db.fileIds = fileIds
 
 	for i, fid := range fileIds {
-		ioType := io.FIO
+		ioType := io.MemoryMap
 		dataFile, err := data.OpenDataFile(db.dirPath, uint32(fid), ioType)
 		if err != nil {
 			return err

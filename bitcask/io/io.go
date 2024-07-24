@@ -19,7 +19,6 @@ var (
 
 const (
 	DataFilePerm = 0644
-	MMapFilePerm = 0755
 )
 const (
 	FIO FileIOType = iota

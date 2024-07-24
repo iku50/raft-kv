@@ -5,7 +5,6 @@ import (
 	"os"
 	"raft-kv/bitcask/data"
 	"raft-kv/bitcask/index"
-	"raft-kv/bitcask/io"
 	"sync"
 	"time"
 )
@@ -13,6 +12,7 @@ import (
 // now it just a simple key-value store
 
 type BitCask interface {
+	DirPath() string
 	Stat() *Stat
 
 	Get(key []byte) (value []byte, err error)
@@ -47,7 +47,7 @@ type DB struct {
 	reclaimSize int64
 }
 
-const DataFileSize = 1024 * 1024 * 1024
+const DataFileSize = 128 * (1 << 20)
 
 type Stat struct {
 	KeyNum          uint
@@ -133,13 +133,13 @@ func NewDB(option ...Option) (*DB, error) {
 			return nil, err
 		}
 		if len(entries) == 0 {
-			if _, err = data.OpenDataFile(db.dirPath, 0, io.FIO); err != nil {
+			err := data.CreateDataFile(db.dirPath, 0)
+			if err != nil {
 				return nil, err
 			}
 		}
 	}
 	if db.index == nil {
-
 		db.index = index.NewSimMap()
 	}
 	if err := db.loadDataFile(); err != nil {
@@ -148,6 +148,10 @@ func NewDB(option ...Option) (*DB, error) {
 	db.wg.Add(1)
 	go db.mergeLoop()
 	return &db, nil
+}
+
+func (db *DB) DirPath() string {
+	return db.dirPath
 }
 
 func (db *DB) mergeLoop() {

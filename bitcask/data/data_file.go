@@ -25,6 +25,16 @@ type File struct {
 	IoManager io.Manager
 }
 
+func CreateDataFile(dirPath string, fileId uint32) error {
+	fileName := GetDataFileName(dirPath, fileId)
+	file, err := newDataFile(fileName, fileId, io.FIO)
+	defer file.Close()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func OpenDataFile(dirPath string, fileId uint32, ioType io.FileIOType) (*File, error) {
 	fileName := GetDataFileName(dirPath, fileId)
 	return newDataFile(fileName, fileId, ioType)
