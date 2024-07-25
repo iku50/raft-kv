@@ -15,7 +15,7 @@ func (b *DB) Merge() error {
 			continue
 		}
 		offset := int64(0)
-		for offset < f.WriteOff {
+		for offset <= f.WriteOff {
 			log, l, err := f.ReadLogRecord(offset)
 			if err != nil {
 				return err

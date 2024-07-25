@@ -13,6 +13,7 @@ func (db *DB) setActiveDataFile() error {
 	var initialField uint32 = 0
 	if db.activeFile != nil {
 		initialField = db.activeFile.FileId + 1
+		db.fileIds = append(db.fileIds, int(initialField))
 	}
 
 	dataFile, err := data.OpenDataFile(db.dirPath, initialField, io.MemoryMap)
@@ -119,10 +120,11 @@ func (db *DB) appendLogRecord(logRecord *data.LogRecord) (*data.LogRecordIndex, 
 			return nil, err
 		}
 		var err error
-		db.olderFiles[db.activeFile.FileId], err = data.OpenDataFile(db.dirPath, db.activeFile.FileId, io.FIO)
+		activeFileId := db.activeFile.FileId
 		if err = db.activeFile.Close(); err != nil {
 			return nil, err
 		}
+		db.olderFiles[activeFileId], err = data.OpenDataFile(db.dirPath, activeFileId, io.FIO)
 		if err := db.setActiveDataFile(); err != nil {
 			return nil, err
 		}

@@ -74,6 +74,9 @@ func newDataFile(fileName string, fileId uint32, ioType io.FileIOType) (*File, e
 
 func (df *File) ReadLogRecord(offset int64) (*LogRecord, int64, error) {
 	fileSize, err := df.IoManager.Size()
+	if offset >= fileSize {
+		return nil, 0, io.ErrEOF
+	}
 	if err != nil {
 		return nil, 0, err
 	}

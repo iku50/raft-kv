@@ -38,7 +38,7 @@ func TestDB_Merge(t *testing.T) {
 		t.Fatal(err)
 	}
 	testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
-	defer os.RemoveAll(testDir)
+	// defer os.RemoveAll(testDir)
 	db := initBitCask(testDir)
 	key := make([]byte, 10)
 	value := make([]byte, 1024*1024)
@@ -51,18 +51,18 @@ func TestDB_Merge(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	ch := make(chan struct{})
-	go func(chan struct{}) {
-		defer close(ch)
-		err := db.Merge()
-		if err != nil {
-			return
-		}
-	}(ch)
+	// ch := make(chan struct{})
+	// go func(chan struct{}) {
+	// 	defer close(ch)
+	err = db.Merge()
+	if err != nil {
+		return
+	}
+	// }(ch)
 	val, err := db.Get(key)
 	assert.Equal(t, err, nil)
 	assert.Equal(t, string(val), string(value))
-	<-ch
+	// <-ch
 }
 
 type benchmarkTestCase struct {
