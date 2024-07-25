@@ -78,6 +78,13 @@ func (mio *MMap) Write(b []byte) (int, error) {
 }
 
 func (mio *MMap) Sync() error {
+	// sonoma don't have MSync, so it has to be implemented by myself.
+	_p0 := unsafe.Pointer(&mio.dataRef[0])
+	// just async, don't wait for the result.
+	_, _, e1 := syscall.Syscall(syscall.SYS_MSYNC, uintptr(_p0), uintptr(len(mio.data)), uintptr(syscall.MS_ASYNC))
+	if e1 != 0 {
+		return e1
+	}
 	return nil
 }
 

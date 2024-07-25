@@ -25,6 +25,8 @@ func (db *DB) setActiveDataFile() error {
 }
 
 func (db *DB) loadDataFile() error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	dirEntries, err := os.ReadDir(db.dirPath)
 	if err != nil {
 		return err
@@ -46,14 +48,18 @@ func (db *DB) loadDataFile() error {
 	db.fileIds = fileIds
 
 	for i, fid := range fileIds {
-		ioType := io.MemoryMap
-		dataFile, err := data.OpenDataFile(db.dirPath, uint32(fid), ioType)
-		if err != nil {
-			return err
-		}
+		var dataFile *data.File
 		if i == len(fileIds)-1 {
+			dataFile, err = data.OpenDataFile(db.dirPath, uint32(fid), io.MemoryMap)
+			if err != nil {
+				return err
+			}
 			db.activeFile = dataFile
 		} else {
+			dataFile, err = data.OpenDataFile(db.dirPath, uint32(fid), io.FIO)
+			if err != nil {
+				return err
+			}
 			db.olderFiles[uint32(fid)] = dataFile
 		}
 		db.reclaimSize += dataFile.WriteOff
@@ -78,6 +84,8 @@ func (db *DB) loadDataFile() error {
 func (db *DB) getValueByPosition(logRecordPos *data.LogRecordIndex) ([]byte, error) {
 	var dataFile *data.File
 	if db.activeFile.FileId == logRecordPos.Fid {
+		db.mu.RLock()
+		defer db.mu.RUnlock()
 		dataFile = db.activeFile
 	} else {
 		dataFile = db.olderFiles[logRecordPos.Fid]
@@ -110,9 +118,11 @@ func (db *DB) appendLogRecord(logRecord *data.LogRecord) (*data.LogRecordIndex, 
 		if err := db.activeFile.Sync(); err != nil {
 			return nil, err
 		}
-
-		db.olderFiles[db.activeFile.FileId] = db.activeFile
-
+		var err error
+		db.olderFiles[db.activeFile.FileId], err = data.OpenDataFile(db.dirPath, db.activeFile.FileId, io.FIO)
+		if err = db.activeFile.Close(); err != nil {
+			return nil, err
+		}
 		if err := db.setActiveDataFile(); err != nil {
 			return nil, err
 		}

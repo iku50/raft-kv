@@ -18,7 +18,7 @@ func TestNewDB(t *testing.T) {
 		t.Fatal(err)
 	}
 	testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
-	defer os.Remove(testDir)
+	defer os.RemoveAll(testDir)
 	db := initBitCask(testDir)
 	key := []byte("hello")
 	value := []byte("world")
@@ -38,7 +38,7 @@ func TestDB_Merge(t *testing.T) {
 		t.Fatal(err)
 	}
 	testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
-	defer os.Remove(testDir)
+	defer os.RemoveAll(testDir)
 	db := initBitCask(testDir)
 	key := make([]byte, 10)
 	value := make([]byte, 1024*1024)
@@ -91,7 +91,7 @@ func BenchmarkGet(b *testing.B) {
 				b.Fatal(err)
 			}
 			testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
-			defer os.Remove(testDir)
+			defer os.RemoveAll(testDir)
 			db := initBitCask(testDir)
 			key := []byte("foo")
 			value := []byte(strings.Repeat(" ", tt.size))
@@ -125,7 +125,7 @@ func BenchmarkPut(b *testing.B) {
 				b.Fatal(err)
 			}
 			testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
-			defer os.Remove(testDir)
+			defer os.RemoveAll(testDir)
 			db := initBitCask(testDir)
 			key := []byte("foo")
 			value := []byte(strings.Repeat(" ", tt.size))
@@ -136,7 +136,6 @@ func BenchmarkPut(b *testing.B) {
 					b.Fatal(err)
 				}
 			}
-
 		})
 	}
 }

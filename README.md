@@ -73,44 +73,47 @@ PASS
 the benchmark of bitcask(mmap):
 
 ```plaintext
+goos: darwin
+goarch: arm64
+pkg: raft-kv/bitcask
 BenchmarkGet
 BenchmarkGet/128B
-BenchmarkGet/128B-8         	 8669937	       129.1 ns/op	 991.67 MB/s
+BenchmarkGet/128B-8         	 8380644	       134.0 ns/op	 955.02 MB/s
 BenchmarkGet/256B
-BenchmarkGet/256B-8         	 7794375	       146.9 ns/op	1742.17 MB/s
+BenchmarkGet/256B-8         	 7635014	       157.1 ns/op	1629.19 MB/s
 BenchmarkGet/512B
-BenchmarkGet/512B-8         	 5840192	       202.3 ns/op	2531.33 MB/s
+BenchmarkGet/512B-8         	 5704957	       209.5 ns/op	2443.39 MB/s
 BenchmarkGet/1K
-BenchmarkGet/1K-8           	 3345074	       338.7 ns/op	3023.56 MB/s
+BenchmarkGet/1K-8           	 3522381	       338.0 ns/op	3029.69 MB/s
 BenchmarkGet/2K
-BenchmarkGet/2K-8           	 2128545	       558.9 ns/op	3664.62 MB/s
+BenchmarkGet/2K-8           	 2124867	       562.2 ns/op	3643.05 MB/s
 BenchmarkGet/4K
-BenchmarkGet/4K-8           	 1000000	      1109 ns/op	3693.03 MB/s
+BenchmarkGet/4K-8           	 1000000	      1013 ns/op	4045.29 MB/s
 BenchmarkGet/8K
-BenchmarkGet/8K-8           	  637288	      1891 ns/op	4331.70 MB/s
+BenchmarkGet/8K-8           	  636344	      1909 ns/op	4291.34 MB/s
 BenchmarkGet/16K
-BenchmarkGet/16K-8          	  332312	      3692 ns/op	4437.26 MB/s
+BenchmarkGet/16K-8          	  319039	      3581 ns/op	4575.01 MB/s
 BenchmarkGet/32K
-BenchmarkGet/32K-8          	  161175	      7463 ns/op	4390.63 MB/s
+BenchmarkGet/32K-8          	  162922	      7392 ns/op	4432.87 MB/s
 BenchmarkPut
 BenchmarkPut/128B
-BenchmarkPut/128B-8         	 7471644	       164.6 ns/op	 777.52 MB/s
+BenchmarkPut/128B-8         	   61130	     23305 ns/op	   5.49 MB/s
 BenchmarkPut/256B
-BenchmarkPut/256B-8         	 5277501	       259.6 ns/op	 986.25 MB/s
+BenchmarkPut/256B-8         	   60801	     31647 ns/op	   8.09 MB/s
 BenchmarkPut/512B
-BenchmarkPut/512B-8         	 3577524	       398.0 ns/op	1286.30 MB/s
+BenchmarkPut/512B-8         	   60057	     64230 ns/op	   7.97 MB/s
 BenchmarkPut/1K
-BenchmarkPut/1K-8           	 1592274	      1060 ns/op	 965.93 MB/s
+BenchmarkPut/1K-8           	   53144	     82874 ns/op	  12.36 MB/s
 BenchmarkPut/2K
-BenchmarkPut/2K-8           	 1000000	      1517 ns/op	1350.31 MB/s
+BenchmarkPut/2K-8           	   42188	     82266 ns/op	  24.89 MB/s
 BenchmarkPut/4K
-BenchmarkPut/4K-8           	  419550	      3100 ns/op	1321.32 MB/s
+BenchmarkPut/4K-8           	   26241	     96671 ns/op	  42.37 MB/s
 BenchmarkPut/8K
-BenchmarkPut/8K-8           	  206582	      5354 ns/op	1530.10 MB/s
+BenchmarkPut/8K-8           	   14892	    108520 ns/op	  75.49 MB/s
 BenchmarkPut/16K
-BenchmarkPut/16K-8          	  135859	     10906 ns/op	1502.34 MB/s
+BenchmarkPut/16K-8          	   10000	    112968 ns/op	 145.03 MB/s
 BenchmarkPut/32K
-BenchmarkPut/32K-8          	   57718	     22916 ns/op	1429.92 MB/s
+BenchmarkPut/32K-8          	   10000	    123725 ns/op	 264.85 MB/s
 PASS
 ```
 
