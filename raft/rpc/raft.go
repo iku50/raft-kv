@@ -2,7 +2,7 @@ package rpc
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net"
 	"raft-kv/raft"
 	"raft-kv/raft/proto"
@@ -39,7 +39,7 @@ func Start(port int, rf *raft.Raft, killCh chan bool, okCh chan bool) {
 	}
 	server := grpc.NewServer()
 	proto.RegisterRaftServer(server, &RpcRaft{rf: rf})
-	log.Printf("Raft server started on port %d", port)
+	slog.Debug("Raft server started", "port", port)
 	okCh <- true
 	if err := server.Serve(lis); err != nil {
 		return

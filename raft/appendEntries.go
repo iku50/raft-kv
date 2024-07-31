@@ -103,8 +103,8 @@ func (rf *Raft) AppendEntries(args *proto.AppendEntriesArgs, reply *proto.Append
 	rf.resetVoteTimer()
 
 	if args.Term > rf.currentTerm {
-		rf.currentTerm = args.Term // 更新iterm
-		rf.votedFor = -1           // 更新投票记录为未投票
+		rf.currentTerm = args.Term
+		rf.votedFor = -1
 		rf.role = Follower
 		rf.persist()
 	}
@@ -117,7 +117,7 @@ func (rf *Raft) AppendEntries(args *proto.AppendEntriesArgs, reply *proto.Append
 		return
 	} else if args.PrevLogIndex >= rf.virtualLogIdx(int64(len(rf.log))) {
 		reply.XTerm = -1
-		reply.XLen = rf.virtualLogIdx(int64(len(rf.log))) // Log长度, 包括了已经snapShot的部分
+		reply.XLen = rf.virtualLogIdx(int64(len(rf.log)))
 		isConflict = true
 	} else if rf.log[rf.realLogIdx(args.PrevLogIndex)].Term != args.PrevLogTerm {
 		reply.XTerm = rf.log[rf.realLogIdx(args.PrevLogIndex)].Term
@@ -126,7 +126,7 @@ func (rf *Raft) AppendEntries(args *proto.AppendEntriesArgs, reply *proto.Append
 			i -= 1
 		}
 		reply.XIndex = i + 1
-		reply.XLen = rf.virtualLogIdx(int64(len(rf.log))) // Log长度, 包括了已经snapShot的部分
+		reply.XLen = rf.virtualLogIdx(int64(len(rf.log)))
 		isConflict = true
 	}
 
@@ -159,6 +159,6 @@ func (rf *Raft) AppendEntries(args *proto.AppendEntriesArgs, reply *proto.Append
 		} else {
 			rf.commitIndex = args.LeaderCommit
 		}
-		rf.condApply.Signal() // 唤醒检查commit的协程
+		rf.condApply.Signal() // wake up apply goroutine
 	}
 }

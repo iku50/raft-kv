@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log/slog"
 	"raft-kv/bitcask"
 	"raft-kv/bitcask/index"
 	"raft-kv/raft"
@@ -138,20 +139,18 @@ func (s *Server) applyLoop() {
 			}
 			c := bitcask.Command{}
 			c.FromBytes(msg.Command)
-			fmt.Printf("Apply: %v\n", c)
+			slog.Debug("Apply", "command", c)
 			switch c.Op {
 			case bitcask.Put:
 				err := s.db.Put(c.Key, c.Value)
 				if err != nil {
 					panic(err)
 				}
-				fmt.Printf("PUT: %v\n", c)
 			case bitcask.Delete:
 				err := s.db.Delete(c.Key)
 				if err != nil {
 					panic(err)
 				}
-				fmt.Printf("Delete: %v\n", c)
 			case bitcask.Get:
 				// don't need to do anything
 			}
@@ -173,7 +172,6 @@ func (s *Server) Start() {
 }
 
 func (s *Server) AddKnownServer(address string) {
-
 	s.knownServers = append(s.knownServers)
 }
 
@@ -185,5 +183,6 @@ func (s *Server) wait() {
 }
 
 func (s *Server) Close() {
+	slog.Info("Close", "address", s.address)
 	s.killCh <- true
 }

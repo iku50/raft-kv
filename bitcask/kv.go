@@ -2,6 +2,7 @@ package bitcask
 
 import (
 	"errors"
+	"log/slog"
 	"os"
 	"raft-kv/bitcask/data"
 	"raft-kv/bitcask/index"
@@ -12,21 +13,13 @@ import (
 // now it just a simple key-value store
 
 type BitCask interface {
-	DirPath() string
 	Stat() *Stat
-
 	Get(key []byte) (value []byte, err error)
-
 	Put(key, value []byte) error
-
 	Delete(key []byte) error
-
 	// List() (key []string, err error)
-
 	Merge() error
-
 	Sync() error
-
 	Close()
 }
 
@@ -68,21 +61,19 @@ func (db *DB) Close() {
 	db.wg.Wait()
 	db.mu.Lock()
 	defer db.mu.Unlock()
+	slog.Info("close bitcask", "name", db.dirPath)
 	// close index
-	err := db.index.Close()
-	if err != nil {
-		return
+	if err := db.index.Close(); err != nil {
+		slog.Error("close index error", err)
 	}
-
 	// close active file and older files
-	err = db.activeFile.Close()
+	if err := db.activeFile.Close(); err != nil {
+		slog.Error("close active file error", err)
+	}
 	for _, file := range db.olderFiles {
 		if err := file.Close(); err != nil {
-			return
+			slog.Error("close older file error", err)
 		}
-	}
-	if err != nil {
-		return
 	}
 }
 
@@ -108,8 +99,8 @@ func WithIndex(index index.Indexer) Option {
 	}
 }
 
-func NewDB(option ...Option) (*DB, error) {
-	db := DB{
+func DefaultOptions() *DB {
+	return &DB{
 		mu:         &sync.RWMutex{},
 		dirPath:    "data",
 		activeFile: nil,
@@ -118,8 +109,12 @@ func NewDB(option ...Option) (*DB, error) {
 		wg:         &sync.WaitGroup{},
 		stopCh:     make(chan struct{}),
 	}
+}
+
+func NewDB(option ...Option) (*DB, error) {
+	db := DefaultOptions()
 	for _, opt := range option {
-		if err := opt(&db); err != nil {
+		if err := opt(db); err != nil {
 			return nil, err
 		}
 	}
@@ -130,12 +125,12 @@ func NewDB(option ...Option) (*DB, error) {
 	} else {
 		entries, err := os.ReadDir(db.dirPath)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 		if len(entries) == 0 {
 			err := data.CreateDataFile(db.dirPath, 0)
 			if err != nil {
-				return nil, err
+				panic(err)
 			}
 		}
 	}
@@ -143,36 +138,28 @@ func NewDB(option ...Option) (*DB, error) {
 		db.index = index.NewSimMap()
 	}
 	if err := db.loadDataFile(); err != nil {
-		return nil, err
+		panic(err)
 	}
 	db.wg.Add(1)
 	go db.mergeLoop()
-	return &db, nil
-}
-
-func (db *DB) DirPath() string {
-	return db.dirPath
+	return db, nil
 }
 
 func (db *DB) mergeLoop() {
 	for {
-		timer := time.NewTimer(time.Second * 30)
+		timer := time.NewTimer(time.Second * 5)
 		select {
 		case <-db.stopCh:
 			db.wg.Done()
 			return
 		case <-timer.C:
-			db.mu.RLock()
-			if db.reclaimSize > 3*DataFileSize {
-				db.mu.RUnlock()
+			if db.reclaimSize > 10*DataFileSize {
 				err := db.Merge()
 				if err != nil {
 					panic(err)
 				}
-			} else {
-				db.mu.RUnlock()
 			}
-			timer.Reset(time.Second * 30)
+			timer.Reset(time.Second * 5)
 		}
 	}
 }
@@ -229,8 +216,6 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	if logRecordPos == nil {
 		return nil, ErrKeyNotFound
 	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 	return db.getValueByPosition(logRecordPos)
 }
 

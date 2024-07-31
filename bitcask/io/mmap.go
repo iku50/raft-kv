@@ -2,6 +2,7 @@ package io
 
 import (
 	"os"
+	"sync"
 	"syscall"
 	"unsafe"
 )
@@ -11,6 +12,7 @@ const defaultMemMapSize = 128 * (1 << 20)
 // for now mmap don't work.
 type MMap struct {
 	fd          *os.File
+	mu          sync.RWMutex
 	data        *[defaultMemMapSize]byte
 	dataRef     []byte
 	writeOffset int64
@@ -43,6 +45,7 @@ func NewMMapIOManager(fileName string) (*MMap, error) {
 		fd:          fd,
 		dataRef:     mmap,
 		writeOffset: offset,
+		mu:          sync.RWMutex{},
 	}, nil
 }
 
@@ -60,6 +63,8 @@ func (mio *MMap) grow(size int64) {
 }
 
 func (mio *MMap) Read(b []byte, offset int64) (int, error) {
+	mio.mu.RLock()
+	defer mio.mu.RUnlock()
 	if offset > mio.writeOffset {
 		return 0, ErrEOF
 	}
@@ -72,16 +77,16 @@ func (mio *MMap) Read(b []byte, offset int64) (int, error) {
 }
 
 func (mio *MMap) Write(b []byte) (int, error) {
+	mio.mu.Lock()
+	defer mio.mu.Unlock()
 	n := copy(mio.data[mio.writeOffset:], b)
 	mio.writeOffset += int64(n)
 	return n, nil
 }
 
 func (mio *MMap) Sync() error {
-	// sonoma don't have MSync, so it has to be implemented by myself.
-	_p0 := unsafe.Pointer(&mio.dataRef[0])
 	// just async, don't wait for the result.
-	_, _, e1 := syscall.Syscall(syscall.SYS_MSYNC, uintptr(_p0), uintptr(len(mio.data)), uintptr(syscall.MS_ASYNC))
+	_, _, e1 := syscall.Syscall(syscall.SYS_MSYNC, uintptr(unsafe.Pointer(&mio.dataRef[0])), uintptr(len(mio.data)), uintptr(syscall.MS_ASYNC))
 	if e1 != 0 {
 		return e1
 	}
@@ -89,9 +94,15 @@ func (mio *MMap) Sync() error {
 }
 
 func (mio *MMap) Close() error {
+	mio.mu.Lock()
+	defer mio.mu.Unlock()
 	err := mio.fd.Truncate(mio.writeOffset)
 	if err != nil {
-		return err
+		panic(err)
+	}
+	err = mio.Sync()
+	if err != nil {
+		panic(err)
 	}
 	err = syscall.Munmap(mio.dataRef)
 	if err != nil {
@@ -107,9 +118,12 @@ func (mio *MMap) Close() error {
 }
 
 func (mio *MMap) Size() (int64, error) {
+	mio.mu.RLock()
+	defer mio.mu.RUnlock()
 	return mio.writeOffset, nil
 }
 
 func (mio *MMap) GetFileName() string {
+	// won't change so just return the name.
 	return mio.fd.Name()
 }

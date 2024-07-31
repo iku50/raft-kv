@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"os"
 	"path/filepath"
 	"raft-kv/bitcask/io"
 )
@@ -27,12 +28,11 @@ type File struct {
 
 func CreateDataFile(dirPath string, fileId uint32) error {
 	fileName := GetDataFileName(dirPath, fileId)
-	file, err := newDataFile(fileName, fileId, io.FIO)
-	defer file.Close()
+	file, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
-	return nil
+	return file.Sync()
 }
 
 func OpenDataFile(dirPath string, fileId uint32, ioType io.FileIOType) (*File, error) {

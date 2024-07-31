@@ -22,9 +22,9 @@ type Raft struct {
 	matchIndex []int64
 
 	// self set field for impl
+
 	voteTimer  *time.Timer
 	heartTimer *time.Timer
-	rd         *rand.Rand
 	role       int32
 
 	commitIndex int64
@@ -35,6 +35,8 @@ type Raft struct {
 	snapShot          []byte
 	lastIncludedIndex int64
 	lastIncludedTerm  int32
+
+	rd *rand.Rand
 }
 
 // GetState return currentTerm and whether this server
@@ -196,6 +198,8 @@ func (rf *Raft) ticker() {
 // save its persistent state, and also initially holds the most
 // recent saved state, if any.
 //
+// me: this server's index into peers[].
+//
 // applyCh: a channel on which the
 // service expects Raft to send ApplyMsg messages.
 func Make(peers []proto.RaftClient, me int32,
@@ -225,7 +229,7 @@ func Make(peers []proto.RaftClient, me int32,
 	rf.readPersist(persister.ReadRaftState())
 
 	for i := 0; i < len(rf.nextIndex); i++ {
-		rf.nextIndex[i] = rf.virtualLogIdx(int64(len(rf.log))) // raft中的index是从1开始的
+		rf.nextIndex[i] = rf.virtualLogIdx(int64(len(rf.log))) // start with 1
 	}
 	// start ticker goroutine to start elections
 	go rf.ticker()

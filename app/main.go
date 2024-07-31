@@ -2,12 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"raft-kv/client"
+	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 )
 
 var _cli *client.Client
@@ -33,78 +35,93 @@ func main() {
 	// TODO: add config
 	lb := client.NewMap(3, nil)
 	_cli = client.NewClient(
-		client.WithClusters("region", "country"),
+		client.WithClusters("1"),
 		client.WithLoadBalance(&lb),
 	)
 	_cli.Start()
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	go func() {
-		<-stopCh
-		_cli.Stop()
+		for {
+			select {
+			case <-stopCh:
+				_cli.Stop()
+			}
+			time.After(500 * time.Millisecond)
+		}
 	}()
-	r := mux.NewRouter()
-	r.HandleFunc("/{key}", get).Methods(http.MethodGet)
-	r.HandleFunc("/{key}", put).Methods(http.MethodPost)
-	r.HandleFunc("/{key}", del).Methods(http.MethodDelete)
-	if err := http.ListenAndServe(":8080", r); err != nil {
-		return
+	r := fiber.New()
+	r.Use(func(c fiber.Ctx) error {
+		// gen a request id
+		uuid := uuid.New()
+		c.Request().Header.Set("X-Request-Id", uuid.String())
+		// log request
+		slog.Info("Request", "requestId", uuid, "method", c.Method(), "path", c.Path())
+		err := c.Next()
+		if err != nil {
+			// log error
+			slog.Error("Error", "requestId", uuid, "error", err.Error(), "method", c.Method(), "path", c.Path(), "body", string(c.Body()))
+			return err
+		}
+		// log response
+		slog.Info("Response", "requestId", uuid, "method", c.Method(), "path", c.Path())
+		return nil
+	})
+	r.Get("/:key", get)
+	r.Post("/:key", put)
+	r.Delete("/:key", del)
+	if err := r.Listen(":8080"); err != nil {
+		slog.Error(err.Error())
+		panic(err)
 	}
 }
 
-func del(writer http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	key, ok := vars["key"]
-	if !ok {
-		_, _ = fmt.Fprintf(writer, "no key")
-		return
+func del(c fiber.Ctx) error {
+	key := c.Params("key")
+	if key == "" {
+		return c.SendStatus(http.StatusBadRequest)
 	}
 	err := _cli.Delete(key)
 	if err != nil {
-		log.Println(err)
-		return
+		slog.Error(err.Error())
+		return err
 	}
-	resp := DeleteResponse{}
-	resp.Success = true
-	_ = json.NewEncoder(writer).Encode(&resp)
-	return
+	resp := DeleteResponse{Success: true}
+	return c.JSON(resp)
 }
 
-func put(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	key, ok := vars["key"]
-	if !ok {
-		_, _ = fmt.Fprintf(w, "no key")
-		return
+func put(ctx fiber.Ctx) error {
+	key := ctx.Params("key")
+	if key == "" {
+		return ctx.SendStatus(http.StatusBadRequest)
 	}
 	var req PutRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	value := req.Value
-	err := _cli.Put(key, value)
+	err := json.Unmarshal(ctx.Body(), &req)
+	if err != nil {
+		return err
+	}
+	if req.Value == "" {
+		return ctx.SendStatus(http.StatusBadRequest)
+	}
+	err = _cli.Put(key, req.Value)
 	if err != nil {
 		log.Println(err)
-		return
+		return err
 	}
-	resp := PutResponse{}
-	resp.Success = true
-	_ = json.NewEncoder(w).Encode(&resp)
-	return
+	resp := PutResponse{Success: true}
+	return ctx.JSON(resp)
 }
 
-func get(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	key, ok := vars["key"]
-	if !ok {
-		_, _ = fmt.Fprintf(w, "no key")
-		return
+func get(ctx fiber.Ctx) error {
+	key := ctx.Params("key")
+	if key == "" {
+		return ctx.SendStatus(http.StatusBadRequest)
 	}
 	value, err := _cli.Get(key)
 	if err != nil {
 		log.Println(err)
-		return
+		return err
 	}
-	resp := GetResponse{}
-	resp.Value = value
-	_ = json.NewEncoder(w).Encode(&resp)
-	return
+	resp := GetResponse{Value: value}
+	return ctx.JSON(resp)
 }

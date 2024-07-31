@@ -117,6 +117,10 @@ BenchmarkPut/32K-8          	   10000	    123725 ns/op	 264.85 MB/s
 PASS
 ```
 
+## HTTP Test
+
+In a single-machine three-node cluster environment, with 20 local users performing put and get operations in a loop, the QPS is 39. The average response time is 6 ms. For get requests, the average response time is 4 ms, with over 90% of the requests having a response time of 4 ms. For post requests, the average response time is 9 ms, with over 90% of the requests having a response time of 8 ms.
+
 ## Getting Start
 
 ```shell

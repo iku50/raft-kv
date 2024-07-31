@@ -1,6 +1,7 @@
 package bitcask
 
 import (
+	io2 "io"
 	"os"
 	"raft-kv/bitcask/data"
 	"raft-kv/bitcask/io"
@@ -68,7 +69,11 @@ func (db *DB) loadDataFile() error {
 		for offset < dataFile.WriteOff {
 			record, l, err := dataFile.ReadLogRecord(offset)
 			if err != nil {
-				return err
+				if err == io2.EOF {
+					break
+				} else {
+					return err
+				}
 			}
 			recordIndex := &data.LogRecordIndex{
 				Fid:    dataFile.FileId,
@@ -84,9 +89,9 @@ func (db *DB) loadDataFile() error {
 
 func (db *DB) getValueByPosition(logRecordPos *data.LogRecordIndex) ([]byte, error) {
 	var dataFile *data.File
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	if db.activeFile.FileId == logRecordPos.Fid {
-		db.mu.RLock()
-		defer db.mu.RUnlock()
 		dataFile = db.activeFile
 	} else {
 		dataFile = db.olderFiles[logRecordPos.Fid]

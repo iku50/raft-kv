@@ -6,6 +6,7 @@ import (
 	"os"
 	"raft-kv/bitcask/index"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -38,8 +39,22 @@ func TestDB_Merge(t *testing.T) {
 		t.Fatal(err)
 	}
 	testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
-	// defer os.RemoveAll(testDir)
+	defer os.RemoveAll(testDir)
 	db := initBitCask(testDir)
+	ch := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-ch:
+				return
+			default:
+				err := db.Merge()
+				if err != nil {
+					t.Error(err)
+				}
+			}
+		}
+	}()
 	key := make([]byte, 10)
 	value := make([]byte, 1024*1024)
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -51,18 +66,10 @@ func TestDB_Merge(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	// ch := make(chan struct{})
-	// go func(chan struct{}) {
-	// 	defer close(ch)
-	err = db.Merge()
-	if err != nil {
-		return
-	}
-	// }(ch)
 	val, err := db.Get(key)
 	assert.Equal(t, err, nil)
 	assert.Equal(t, string(val), string(value))
-	// <-ch
+	ch <- struct{}{}
 }
 
 type benchmarkTestCase struct {
@@ -138,6 +145,54 @@ func BenchmarkPut(b *testing.B) {
 			}
 		})
 	}
+}
+
+func BenchmarkDB_Para(b *testing.B) {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		b.Error(err)
+	}
+	testDir, err := os.MkdirTemp(currentDir, "bitcask_test")
+	defer os.RemoveAll(testDir)
+	db := initBitCask(testDir)
+	// rand 20k key
+	value := make([]byte, 1024*10)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	r.Read(value)
+	ch := make(chan []byte, 100)
+	ok := make(chan struct{})
+	go func() {
+		for i := 0; i < b.N; i++ {
+			key := make([]byte, 100)
+			r := rand.New(rand.NewSource(time.Now().UnixNano()))
+			r.Read(key)
+			ch <- key
+		}
+		close(ok)
+	}()
+
+	b.ResetTimer()
+	wg := sync.WaitGroup{}
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for k := range ch {
+				err := db.Put(k, value)
+				if err != nil {
+					b.Error(err)
+				}
+				v, err := db.Get(k)
+				if err != nil {
+					b.Error(err)
+				}
+				assert.Equal(b, v, value)
+			}
+		}()
+	}
+	<-ok
+	close(ch)
+	wg.Wait()
 }
 
 func initBitCask(testDir string) BitCask {
